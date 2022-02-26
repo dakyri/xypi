@@ -1,0 +1,3 @@
+[submodule "xypiduino"]
+	path = xypiduino
+	url = https://github.com/dakyri/xypiduino

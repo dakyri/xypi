@@ -1,6 +1,6 @@
 #pragma once
 
-#include "workqueue.h"
+#include "osc_workq.h"
 
 #include <atomic>
 
@@ -10,11 +10,9 @@
 class OSCHandler
 {
 public:
-	OSCHandler(workq_t& workq, results_t& results);
+	OSCHandler(oscapi::workq_t& workq);
 
 	void debugDump();
 private:
-	workq_t& m_workq;
-	results_t& m_results;
-	static std::atomic<jobid_t> jobid;
+	oscapi::workq_t& m_workq;
 };

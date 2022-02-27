@@ -22,7 +22,7 @@ public:
 	 */
 	void disableWait()
 	{
-		std::scoped_lock<std::mutex> lock(m_mutex);
+		std::unique_lock<std::mutex> lock(m_mutex);
 		m_enabled = false;
 		m_ready.notify_all();
 	}
@@ -42,7 +42,7 @@ public:
 	 */
 	void push(T&& value)
 	{
-		const std::scoped_lock<std::mutex> lock(m_mutex);
+		const std::unique_lock<std::mutex> lock(m_mutex);
 		m_queue.push_back(std::move(value));
 		m_ready.notify_all();
 	}
@@ -52,7 +52,7 @@ public:
 	 */
 	void push_front(T&& value)
 	{
-		const std::scoped_lock<std::mutex> lock(m_mutex);
+		const std::unique_lock<std::mutex> lock(m_mutex);
 		m_queue.push_front(std::move(value));
 		m_ready.notify_all();
 	}
@@ -65,7 +65,7 @@ public:
 	{
 		std::unique_lock<std::mutex> conditionLock(m_mutex);
 		m_ready.wait(conditionLock, [&]() { return !m_enabled || !m_queue.empty(); });
-		if (m_queue.empty()) return { T, false };
+		if (m_queue.empty()) return { T(), false };
 
 		return{ m_queue.front(), true };
 	}
@@ -75,7 +75,7 @@ public:
 	 */
 	void remove(T& v)
 	{
-		const std::scoped_lock<std::mutex> lock(m_mutex);
+		const std::unique_lock<std::mutex> lock(m_mutex);
 		m_queue.remove(v);
 	}
 
@@ -84,7 +84,7 @@ public:
 	 */
 	int find_qorder(std::function<bool(const T&)> pred)
 	{
-		const std::scoped_lock<std::mutex> lock(m_mutex);
+		const std::unique_lock<std::mutex> lock(m_mutex);
 		int qo = 0;
 		for (auto const& it : m_queue) {
 			if (pred(it)) return qo;
@@ -98,7 +98,7 @@ public:
 	 */
 	void foreach(std::function<void(const T&)> f)
 	{
-		const std::scoped_lock<std::mutex> lock(m_mutex);
+		const std::unique_lock<std::mutex> lock(m_mutex);
 		for (auto const& it : m_queue) { f(it); }
 	}
 

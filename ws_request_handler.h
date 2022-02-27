@@ -1,6 +1,6 @@
 #pragma once
 
-#include "workqueue.h"
+#include "jsapi_workq.h"
 
 // supresses a ridiculous warning. ffs boost! go home, you are drunk!
 #define BOOST_DETAIL_SCOPED_ENUM_EMULATION_HPP
@@ -16,7 +16,6 @@
 
 class JSONHandler;
 
-using io_strand_t = boost::asio::io_service::strand;
 using tcp = boost::asio::ip::tcp;
 
 /*!
@@ -27,10 +26,11 @@ using tcp = boost::asio::ip::tcp;
 class WSRequestHandler : public std::enable_shared_from_this<WSRequestHandler>
 {
 public:
-	WSRequestHandler(const std::shared_ptr<boost::asio::ip::tcp::socket> socket,
-				   boost::asio::yield_context yield,
-				   io_strand_t& strand,
-				   std::shared_ptr<JSONHandler> api);
+	WSRequestHandler(boost::asio::io_service &_ioService,
+					const std::shared_ptr<boost::asio::ip::tcp::socket> _socket,
+					boost::asio::yield_context _yield,
+					boost::asio::io_service::strand& _strand,
+					std::shared_ptr<JSONHandler> _api);
 	~WSRequestHandler();
 	void run();
 	void setMaxRetry(uint32_t rts);
@@ -47,7 +47,7 @@ private:
 	std::shared_ptr<tcp::socket> socket;
 	boost::asio::deadline_timer socketDeadlineTimer;
 	boost::asio::yield_context yieldCtxt;
-	io_strand_t strand;
+	boost::asio::io_service::strand& strand;
 	const boost::posix_time::ptime startTime;
 
 	uint32_t retryCnt;

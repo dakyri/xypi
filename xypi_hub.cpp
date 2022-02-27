@@ -2,7 +2,7 @@
 
 #include "osc_handler.h"
 #include "osc_server.h"
-#include "worker.h"
+#include "osc_worker.h"
 
 #include "spdlog/spdlog.h"
 
@@ -24,9 +24,9 @@ XypiHub::XypiHub(uint16_t serverPort, uint16_t threadCount)
 	: threadCount(threadCount > 0 ? threadCount : 1)
 {
 	info("OSC server on port {} with {} threads.", serverPort, threadCount);
-	oscHandler = std::make_shared<OSCHandler>(m_workQ, m_results);
+	oscHandler = std::make_shared<OSCHandler>(oscOutQ);
 	oscServer = std::make_unique<OSCServer>(oscService, serverPort, oscHandler);
-	oscWorker = std::make_unique<Worker>(m_workQ, m_results);
+	oscWorker = std::make_unique<OSCWorker>(oscOutQ);
 }
 
 XypiHub::~XypiHub() = default;

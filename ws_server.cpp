@@ -71,8 +71,8 @@ void WSServer::accept()
 		debug("Server::accept() making new connection \\o/");
 		auto strand = asio::io_service::strand(ioService); // the strand is copied into the RequestHandler
 		auto socket = std::make_shared<tcp::socket>(std::move(new_socket));
-		asio::spawn(strand, [socket, strand, this](asio::yield_context yield) {
-			auto handler = std::make_shared<WSRequestHandler>(socket, yield, strand, jsonHandler);
+		asio::spawn(strand, [socket, &strand, this](asio::yield_context yield) {
+			auto handler = std::make_shared<WSRequestHandler>(ioService, socket, yield, strand, jsonHandler);
 			try {
 				handler->run();
 			} catch (const std::exception& e) {

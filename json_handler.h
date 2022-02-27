@@ -1,6 +1,6 @@
 #pragma once
 
-#include "workqueue.h"
+#include "jsapi_workq.h"
 
 #include <atomic>
 
@@ -10,7 +10,7 @@
 class JSONHandler
 {
 public:
-	JSONHandler(workq_t& workq, results_t& results);
+	JSONHandler(jsapi::workq_t& workq, jsapi::results_t& results);
 
 	nlohmann::json process(const nlohmann::json& request);
 
@@ -20,7 +20,7 @@ public:
 	void debugDump();
 
 private:
-	workq_t& m_workq;
-	results_t& m_results;
-	static std::atomic<jobid_t> jobid;
+	jsapi::workq_t& workq;
+	jsapi::results_t& results;
+	static std::atomic<jsapi::jobid_t> jobid;
 };

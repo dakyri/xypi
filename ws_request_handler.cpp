@@ -1,11 +1,13 @@
 #include "ws_request_handler.h"
 #include "json_handler.h"
 
+#include <boost/bind.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/write.hpp>
+#include <boost/asio/placeholders.hpp>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -17,12 +19,13 @@ using spdlog::warn;
 
 namespace asio = boost::asio;
 
-WSRequestHandler::WSRequestHandler(const std::shared_ptr<tcp::socket> _socket,
-							   asio::yield_context _yield,
-							   io_strand_t& _strand,
-							   std::shared_ptr<JSONHandler> _api)
+WSRequestHandler::WSRequestHandler(boost::asio::io_service &_ioService,
+								const std::shared_ptr<tcp::socket> _socket,
+								asio::yield_context _yield,
+								boost::asio::io_service::strand& _strand,
+								std::shared_ptr<JSONHandler> _api)
 	: socket(std::move(_socket))
-	, socketDeadlineTimer(_strand.get_io_service())
+	, socketDeadlineTimer(_ioService)
 	, yieldCtxt(std::move(_yield))
 	, strand(_strand)
 	, startTime{boost::posix_time::microsec_clock::local_time()}
@@ -130,10 +133,27 @@ std::pair<std::vector<uint8_t>, bool> WSRequestHandler::readFramedBuffer()
 	while (true) {
 		trace("WSRequestHandler({}) reading a frame...", id);
 		socketDeadlineTimer.expires_from_now(boost::posix_time::seconds(20));
-		auto executor = std::bind(strand, [self = shared_from_this()](const boost::system::error_code ec) {
-			return self->handleTimeout(ec);
+		auto self = shared_from_this();
+/* TODO: XXXX: fixme later. c++17 boost 1.66 code breaks for c++14 boost 1.62. C14FIX is the attempt to do it correctly.
+   C14FIX seems to work, but I'm still not 100% about the changes */
+#define C14FIX
+#ifdef C17B166
+		auto handler = std::bind(strand, [self](const boost::system::error_code ec) {
+			self->handleTimeout(ec);
 		});
-		socketDeadlineTimer.async_wait(executor);
+#else
+#ifdef C14FIX
+		auto fn = [self](boost::system::error_code ec) {
+			self->handleTimeout(ec);
+		};
+		auto handler = strand.wrap(fn);
+#else
+		auto handler = [self](const boost::system::error_code ec) {
+			self->handleTimeout(ec);
+		};
+#endif
+#endif
+		socketDeadlineTimer.async_wait(handler);
 
 		boost::system::error_code ec;
 		boost::system::error_code ect;

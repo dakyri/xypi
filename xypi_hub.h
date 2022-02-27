@@ -1,13 +1,13 @@
 #pragma once
 
-#include "workqueue.h"
+#include "osc_workq.h"
 
 #include <memory>
 
 #include <boost/asio/io_service.hpp>
 
 class OSCServer;
-class Worker;
+class OSCWorker;
 class OSCHandler;
 
 class XypiHub
@@ -24,10 +24,9 @@ private:
 
 	std::shared_ptr<OSCHandler> oscHandler; //!<< we should be able to get away with sharing the one
 	std::unique_ptr<OSCServer> oscServer;
-	std::unique_ptr<Worker> oscWorker;
+	std::unique_ptr<OSCWorker> oscWorker;
 
-	workq_t m_workQ;
-	results_t m_results;
+	oscapi::workq_t oscOutQ;
 
 	uint16_t threadCount;
 };

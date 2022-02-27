@@ -52,7 +52,7 @@ void OSCServer::start_receive() {
 	socket.async_receive_from(
 		boost::asio::buffer(*inBuf),
 		*srcEndpoint,
-		boost::bind(recv_handler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, inBuf, srcEndpoint)
+		boost::bind(&OSCServer::recv_handler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, inBuf, srcEndpoint)
 	);
 }
 
@@ -68,7 +68,7 @@ void OSCServer::send_message() {
 	socket.async_send_to(
 		boost::asio::buffer(*outBuf),
 		*dstEndpoint,
-		boost::bind(recv_handler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, outBuf, dstEndpoint)
+		boost::bind(&OSCServer::recv_handler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, outBuf, dstEndpoint)
 	);
 }
 

@@ -8,7 +8,9 @@
 
 class OSCServer;
 class OSCWorker;
-class OSCHandler;
+namespace oscapi {
+	class Processor;
+}
 
 class XypiHub
 {
@@ -22,7 +24,7 @@ public:
 private:
 	boost::asio::io_service oscService;
 
-	std::shared_ptr<OSCHandler> oscHandler; //!<< we should be able to get away with sharing the one
+	std::shared_ptr<oscapi::Processor> oscParser; //!<< we should be able to get away with sharing the one
 	std::unique_ptr<OSCServer> oscServer;
 	std::unique_ptr<OSCWorker> oscWorker;
 

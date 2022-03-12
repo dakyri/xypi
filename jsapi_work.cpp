@@ -10,6 +10,12 @@ using json = nlohmann::json;
 using spdlog::info;
 using spdlog::debug;
 
+
+std::shared_ptr<jsapi::work_t> PingWork::create(const std::string& cmd, jsapi::jobid_t id, const nlohmann::json& request)
+{
+	return std::make_shared<PingWork>(cmd, id);
+}
+
 PingWork::PingWork(const std::string& cmd, jsapi::jobid_t id) : work_t(cmd, id, 0) {}
 
 nlohmann::json PingWork::toJson()

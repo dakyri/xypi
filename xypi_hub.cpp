@@ -1,6 +1,6 @@
 #include "xypi_hub.h"
 
-#include "osc_handler.h"
+#include "osc_api.h"
 #include "osc_server.h"
 #include "osc_worker.h"
 
@@ -24,9 +24,9 @@ XypiHub::XypiHub(uint16_t serverPort, uint16_t threadCount)
 	: threadCount(threadCount > 0 ? threadCount : 1)
 {
 	info("OSC server on port {} with {} threads.", serverPort, threadCount);
-	oscHandler = std::make_shared<OSCHandler>(oscOutQ);
-	oscServer = std::make_unique<OSCServer>(oscService, serverPort, oscHandler);
-	oscWorker = std::make_unique<OSCWorker>(oscOutQ);
+	oscParser = std::make_shared<oscapi::Processor>(oscOutQ);
+	oscServer = std::make_unique<OSCServer>(oscService, serverPort, oscParser);
+	oscWorker = std::make_unique<OSCWorker>(*oscServer.get(), oscOutQ);
 }
 
 XypiHub::~XypiHub() = default;
@@ -39,7 +39,7 @@ void XypiHub::run()
 {
 	oscServer->start();
 	oscWorker->run();
-	info("Kutya::run(): Server started and worker running ;)");
+	info("Xypi::run(): Server started and worker running ;)");
 #ifdef SINGLE_THREADED_IO
 	oscService.run();
 #else
@@ -52,9 +52,9 @@ void XypiHub::run()
 		if (thread.joinable()) thread.join();
 	}
 #endif
-	info("Kutya::run(): io_context threads joined and completed. :o");
+	info("Xypi::run(): io_context threads joined and completed. :o");
 	oscWorker->stop();
-	info("Kutya::run() shut down successfully. :)");
+	info("Xypi::run() shut down successfully. :)");
 }
 
 /*!

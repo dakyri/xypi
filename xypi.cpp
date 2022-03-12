@@ -25,17 +25,41 @@ void setLogLevel(int l)
 	}
 	spdlog::set_level(level);
 }
+#include <boost/regex.hpp>
 
 int main(int argc, char** argv)
 {
+#undef HACK
+#ifdef HACK
+	boost::regex osc_re("/(?<MDI>midi(?<PRT>[0-9])?/((?<CHM>(non)|(nof)|(ctl)|(prg)|(chn)|(key)|(bnd))|(?<SYS>(sex)|(pos)|(stt)|(stp)|(tun)|(tcd)|(sel)|(clk))))");
+	boost::cmatch results;
+	if (boost::regex_match("/midi2/non", results, osc_re, boost::match_extra)) {
+		if (results["MDI"].matched) {
+			std::cout << "matches and recognises midi path" << "\n";
+			std::cout << "port: " << results["PRT"] << "\n";
+			std::cout << results[0].matched << results[1].matched << results[2].matched << results[3].matched << results[4].matched
+				<< results[5].matched << results[11].matched << results[13].matched << results[20].matched << "\n";
+			if (results["SYS"].matched) {
+				std::cout << "system mode: " << results["SYS"] << "\n";
+			}
+			else if (results["CHM"].matched) {
+				std::cout << "channel mode: " << results["CHM"] << "\n";
+			}
+		}
+	}
+	else {
+		std::cout << "nope\n";
+	}
+
+#else
 	namespace options = boost::program_options;
 	options::options_description opts{"Chimera Socket Backend Dog Server"};
 	// clang-format off
 	opts.add_options()
-		("help,h",														"show help screen")
-		("port,p",		options::value<uint16_t>()->default_value(80),	"set listening port")
-		("threads,t",	options::value<uint16_t>()->default_value(0), 	"set io thread count (0 uses the default hardware concurrency)")
-		("log-level,l",	options::value<uint16_t>()->default_value(3),	"set log level from 0 (off) to 4 (debug) and 5 (ridiculous)")
+		("help,h",															"show help screen")
+		("port,p",		options::value<uint16_t>()->default_value(5505),	"set osc listening port")
+		("threads,t",	options::value<uint16_t>()->default_value(1), 		"set io thread count (0 uses the default hardware concurrency)")
+		("log-level,l",	options::value<uint16_t>()->default_value(4),		"set log level from 0 (off) to 4 (debug) and 5 (ridiculous)")
 		;
 	// clang-format on
 	options::variables_map vars;
@@ -57,6 +81,6 @@ int main(int argc, char** argv)
 
 	XypiHub xypi(serverPort, threadCount);
 	xypi.run();
-
+#endif
 	return 0;
 }

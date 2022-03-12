@@ -57,13 +57,14 @@ void OSCWorker::runner()
 {
 	workq.enableWait();
 	while (isRunning) {
+		// TODO: perhaps the whole current queue could be bundled
 		auto optWork = workq.front();
 		if (optWork.second) {
 			// specifically make a new reference to the shared_ptr to work with, so we can leave the work at the top of q
 			// workRef should still be valid even if it is no longer front
 			auto& work = optWork.first;
 			try {
-				oscurver.send_message();
+				oscurver.send_message(work);
 			} catch (const std::exception& e) {
 				error("OSCWorker() gets exception: {}", e.what());
 			}

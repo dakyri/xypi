@@ -3,6 +3,8 @@
 #include "osc_api.h"
 #include "osc_server.h"
 #include "osc_worker.h"
+#include "json_handler.h"
+#include "ws_server.h"
 
 #include "spdlog/spdlog.h"
 
@@ -20,12 +22,16 @@ using spdlog::debug;
  *  \param serverPort uint16_t what is says on the box
  *	\param threadCount uint16_t number of threads to launch. if 0, we'll make a reasonable estimate
  */
-XypiHub::XypiHub(uint16_t serverPort, uint16_t threadCount)
+XypiHub::XypiHub(std::string dst_osc_adr, uint16_t dst_osc_prt, uint16_t rcv_osc_port, uint16_t ws_port, uint16_t threadCount)
 	: threadCount(threadCount > 0 ? threadCount : 1)
 {
-	info("OSC server on port {} with {} threads.", serverPort, threadCount);
-	oscParser = std::make_shared<oscapi::Processor>(oscOutQ);
-	oscServer = std::make_unique<OSCServer>(oscService, serverPort, oscParser);
+	info("Xypi servers running on {} threads: OSC server on port {}, WS server on port {}.", threadCount, rcv_osc_port, ws_port);
+//	oscParser = std::make_shared<oscapi::Processor>(oscOutQ);
+//	oscServer = std::make_unique<OSCServer>(ioService, rcv_osc_port, oscParser);
+//	oscServer->set_current_destination(dst_osc_adr, dst_osc_prt);
+	jsonApi = std::make_shared<JSONHandler>(jsapi::workq_t(), jsapi::results_t());
+	wsServer = std::make_unique<WSServer>(ioService, ws_port, jsonApi);
+
 	oscWorker = std::make_unique<OSCWorker>(*oscServer.get(), oscOutQ);
 }
 
@@ -37,15 +43,16 @@ XypiHub::~XypiHub() = default;
  */
 void XypiHub::run()
 {
-	oscServer->start();
-	oscWorker->run();
-	info("Xypi::run(): Server started and worker running ;)");
+//	oscServer->start();
+//	oscWorker->run();
+	wsServer->start();
+	info("Xypi::run(): Servers started and worker running ;)");
 #ifdef SINGLE_THREADED_IO
-	oscService.run();
+	ioService.run();
 #else
 	std::vector<std::thread> ioThreads;
 	for (int i = 0; i < threadCount; ++i) {
-		ioThreads.emplace_back([this]() { oscService.run(); });
+		ioThreads.emplace_back([this]() { ioService.run(); });
 	}
 
 	for (auto& thread : ioThreads) {
@@ -62,7 +69,7 @@ void XypiHub::run()
  */
 void XypiHub::stop()
 {
-	oscService.stop(); // should be posted perhaps?
+	ioService.stop(); // should be posted perhaps?
 	// it would be polite to wait for all those loose threads in the local ioThreads vector. TODO: perhaps make the vector of threads a member so we can do that.
 	oscWorker->stop();
 }

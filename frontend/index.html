@@ -1,0 +1,54 @@
+<!DOCTYPE HTML>
+
+<html>
+  <head>     
+	<script type = "text/javascript">
+		class WSFrontend {
+			constructor() {
+				this.socket = null;
+				this.sock_name = "unknown"
+				alert(this)
+			}
+
+			open(ws_url) {
+				this.socket = new WebSocket(ws_url);
+				this.sock_name = ws_url
+
+				this.socket.onopen = function(e) {
+					alert("[open] Connection established to ${ws_url}");
+				};
+
+				this.socket.onmessage = function(event) {
+					alert(`[message] Data received from server: ${event.data}`);
+				};
+
+				this.socket.onclose = function(event) {
+					if (event.wasClean) {
+						alert(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+					} else {
+						// e.g. server process killed or network down
+						// event.code is usually 1006 in this case
+						alert('[close] Connection died');
+					}
+				};
+				this.socket.onerror = function(error) {
+					var msg = error.message != undefined? error.message : "unknoown error"
+					alert(`Error on ${ws_url}: ${msg}`);
+				};
+			}
+			
+			send(msg) {
+				this.socket.send("{'cmd': 'ping'}");
+			}
+		}
+		
+		let ws = new WSFrontend()
+	</script>
+  </head>
+  <body>
+	<div id = "sse">
+		
+	  <button onClick = "ws.open('ws://127.0.0.1:8080')">Open</button>
+	</div>
+  </body>
+</html>

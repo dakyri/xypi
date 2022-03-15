@@ -31,8 +31,46 @@ int main(int argc, char** argv)
 {
 #undef HACK
 #ifdef HACK
-	boost::regex osc_re("/(?<MDI>midi(?<PRT>[0-9])?/((?<CHM>(non)|(nof)|(ctl)|(prg)|(chn)|(key)|(bnd))|(?<SYS>(sex)|(pos)|(stt)|(stp)|(tun)|(tcd)|(sel)|(clk))))");
+	// 
 	boost::cmatch results;
+	boost::regex upgrade_re("(?<REQ>GET .+ HTTP.+\r\n)"
+		"((Sec-WebSocket-Key: (?<KEY>.*)\r\n)"
+		"|(?<UPG>Upgrade: websocket\r\n)"
+		"|(.+:.+\r\n))+"
+		"(?<HEND>\r\n)");
+	/*
+	boost::regex upgrade_re(
+		"(?<REQ>GET .+ HTTP.+\r\n)"
+		"((Sec-WebSocket-Key: (?<KEY>.*)\r\n)"
+		"|"
+		"(?<UPG>Upgrade: websocket\r\n)"
+		"|"
+		"(.+:.+\r\n))+"
+		"(?<HEND>\r\n)");*/
+	std::string req("jhkjh\r\n"
+		"GET / HTTP/1.1\r\n"
+		"Host: 127.0.0.1:8080\r\n"
+		"Sec-WebSocket-Extensions: permessage-deflate\r\n"
+		"Sec-WebSocket-Key: vXHVX3RfeMpEJfapdcS+ng==\r\n"
+		"Connection: keep-alive, Upgrade\r\n"
+		"Upgrade: websocket\r\n"
+		"\r\n"
+		"as;jk;sldfhjfsklad;"
+	);
+	if (boost::regex_search(req.c_str(), results, upgrade_re, boost::match_extra|boost::match_not_dot_newline)) {
+		if (results["HEND"].matched && results["UPG"].matched) {
+			std::cout << "found an upgrade request " << results["REQ"].str() << ", UPGL: " << results["UPG"].str() << ", KEY: " << results["KEY"].str() << "\n";
+		}
+		else {
+			std::cout << "missing upgrade key and/or header end" << "\n";
+		}
+	}
+	else {
+		std::cout << "not matching basic http request" << "\n";
+	}
+	/*
+
+	boost::regex osc_re("/(?<MDI>midi(?<PRT>[0-9])?/((?<CHM>(non)|(nof)|(ctl)|(prg)|(chn)|(key)|(bnd))|(?<SYS>(sex)|(pos)|(stt)|(stp)|(tun)|(tcd)|(sel)|(clk))))");
 	if (boost::regex_match("/midi2/non", results, osc_re, boost::match_extra)) {
 		if (results["MDI"].matched) {
 			std::cout << "matches and recognises midi path" << "\n";
@@ -49,17 +87,20 @@ int main(int argc, char** argv)
 	}
 	else {
 		std::cout << "nope\n";
-	}
+	}*/
 
 #else
 	namespace options = boost::program_options;
 	options::options_description opts{"Chimera Socket Backend Dog Server"};
 	// clang-format off
 	opts.add_options()
-		("help,h",															"show help screen")
-		("port,p",		options::value<uint16_t>()->default_value(5505),	"set osc listening port")
-		("threads,t",	options::value<uint16_t>()->default_value(1), 		"set io thread count (0 uses the default hardware concurrency)")
-		("log-level,l",	options::value<uint16_t>()->default_value(4),		"set log level from 0 (off) to 4 (debug) and 5 (ridiculous)")
+		("help,h",																		"show help screen")
+		("osc_dst_addr,a",	options::value<std::string>()->default_value("127.0.0.1"),	"set osc target address")
+		("osc_dst_port,p",	options::value<uint16_t>()->default_value(57120),			"set osc target port")
+		("osc_rcv_port,q",	options::value<uint16_t>()->default_value(5505),			"set osc listening port")
+		("ws_port,r",		options::value<uint16_t>()->default_value(8080),			"set ws listening port")
+		("threads,t",		options::value<uint16_t>()->default_value(1), 				"set io thread count (0 uses the default hardware concurrency)")
+		("log-level,l",		options::value<uint16_t>()->default_value(4),				"set log level from 0 (off) to 4 (debug) and 5 (ridiculous)")
 		;
 	// clang-format on
 	options::variables_map vars;
@@ -71,7 +112,10 @@ int main(int argc, char** argv)
 		return 0;
 	}
 
-	auto serverPort = vars["port"].as<uint16_t>();
+	auto oscDstAddr = vars["osc_dst_addr"].as<std::string>();
+	auto oscDstPort = vars["osc_dst_port"].as<uint16_t>();
+	auto oscRcvPort = vars["osc_rcv_port"].as<uint16_t>();
+	auto wsPort = vars["ws_port"].as<uint16_t>();
 	auto threadCount = vars["threads"].as<uint16_t>();
 	if (threadCount == 0) threadCount = std::thread::hardware_concurrency();
 	auto logLevel = vars["log-level"].as<uint16_t>();
@@ -79,7 +123,7 @@ int main(int argc, char** argv)
 
 	info("starting xypi hub {}", std::string("a string"));
 
-	XypiHub xypi(serverPort, threadCount);
+	XypiHub xypi(oscDstAddr, oscDstPort, oscRcvPort, wsPort, threadCount);
 	xypi.run();
 #endif
 	return 0;

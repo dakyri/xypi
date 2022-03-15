@@ -23,21 +23,23 @@ using tcp = boost::asio::ip::tcp;
  * turns the byte stream into a json command stream and sends that to the ApiHandler
  * all the framing, and low level io are our responsibility here
  */
-class WSRequestHandler : public std::enable_shared_from_this<WSRequestHandler>
+class WSSessionHandler : public std::enable_shared_from_this<WSSessionHandler>
 {
 public:
-	WSRequestHandler(boost::asio::io_service &_ioService,
+	WSSessionHandler(boost::asio::io_service &_ioService,
 					const std::shared_ptr<boost::asio::ip::tcp::socket> _socket,
 					boost::asio::yield_context _yield,
 					boost::asio::io_service::strand& _strand,
-					std::shared_ptr<JSONHandler> _api);
-	~WSRequestHandler();
+					std::shared_ptr<JSONHandler> _api,
+					bool _upgraded = false);
+	~WSSessionHandler();
 	void run();
 	void setMaxRetry(uint32_t rts);
 	void setDeadlineSecs(uint32_t dlt);
 
 private:
 	void handleTimeout(const boost::system::error_code& ec);
+	void handleUpgradeRequest();
 	void writeFramedBuffer(std::vector<uint8_t> buf);
 	std::pair<std::vector<uint8_t>, bool> readFramedBuffer();
 	void sendError(const std::string& msg);
@@ -56,4 +58,5 @@ private:
 
 	std::string id;
 	std::shared_ptr<JSONHandler> jsonHandler;
+	bool isUpgraded;
 };

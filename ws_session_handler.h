@@ -9,14 +9,15 @@
 #include <memory>
 #include <utility>
 
-#include <boost/asio/deadline_timer.hpp>
+#include <boost/beast/websocket.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/spawn.hpp>
 #include <nlohmann/json_fwd.hpp>
 
 class JSONHandler;
-
+namespace websocket = boost::beast::websocket;
 using tcp = boost::asio::ip::tcp;
+
 
 /*!
  * handle the basic raw processing of a single stream of socket data and appropriate responses.
@@ -27,36 +28,23 @@ class WSSessionHandler : public std::enable_shared_from_this<WSSessionHandler>
 {
 public:
 	WSSessionHandler(boost::asio::io_service &_ioService,
-					const std::shared_ptr<boost::asio::ip::tcp::socket> _socket,
+					const std::shared_ptr<tcp::socket> _socket,
 					boost::asio::yield_context _yield,
 					boost::asio::io_service::strand& _strand,
-					std::shared_ptr<JSONHandler> _api,
-					bool _upgraded = false);
+					std::shared_ptr<JSONHandler> _api);
 	~WSSessionHandler();
 	void run();
-	void setMaxRetry(uint32_t rts);
-	void setDeadlineSecs(uint32_t dlt);
+	void setTimoutSecs(uint32_t dlt);
 
 private:
-	void handleTimeout(const boost::system::error_code& ec);
-	void handleUpgradeRequest();
-	void writeFramedBuffer(std::vector<uint8_t> buf);
-	std::pair<std::vector<uint8_t>, bool> readFramedBuffer();
 	void sendError(const std::string& msg);
 	void writeJson(const nlohmann::json& msg);
-	std::pair<nlohmann::json, bool> readJson();
 
-	std::shared_ptr<tcp::socket> socket;
-	boost::asio::deadline_timer socketDeadlineTimer;
+	websocket::stream<tcp::socket> ws;
 	boost::asio::yield_context yieldCtxt;
 	boost::asio::io_service::strand& strand;
 	const boost::posix_time::ptime startTime;
 
-	uint32_t retryCnt;
-	uint32_t maxRetries;
-	uint32_t deadlineSecs;
-
 	std::string id;
 	std::shared_ptr<JSONHandler> jsonHandler;
-	bool isUpgraded;
 };

@@ -40,13 +40,13 @@ JSONHandler::JSONHandler(jsapi::workq_t& _workq, jsapi::results_t& _results) : w
  * main processing hook:
  * takes json in, puts json out, and sets up the work queue in between.
  */
-json JSONHandler::process(const json& request)
+std::pair<bool, json> JSONHandler::process(const json& request)
 {
 	auto cmd = jutil::need_s(request, "cmd");
 	auto urgent = !jutil::opt_s(request, "urgent", "").empty();
 	info("JSONHandler::process('{}')", cmd);
 	auto ait = api.find(cmd);
-	if (ait == api.end()) return jutil::errorJSON(fmt::format("Command '{}' not implemented.", cmd));
+	if (ait == api.end()) return {true, jutil::errorJSON(fmt::format("Command '{}' not implemented.", cmd))};
 
 	json response;
 	try {
@@ -78,7 +78,7 @@ json JSONHandler::process(const json& request)
 		return jutil::errorJSON(fmt::format("JSON out of range, {}", e.what()));
 	}
 
-	return response;
+	return {true, response};
 }
 
 /*!

@@ -76,7 +76,7 @@ void WSServer::accept_handler(boost::system::error_code ec, std::shared_ptr<tcp:
 	debug("WSServer::accept() making new connection \\o/");
 	auto strand = asio::io_service::strand(ioService); // the strand is copied into the RequestHandler
 	asio::spawn(strand, [socket, &strand, this](asio::yield_context yield) {
-		auto handler = std::make_shared<WSSessionHandler>(ioService, socket, yield, strand, jsonHandler);
+		auto handler = std::make_shared<WSSessionHandler>(ioService, std::move(socket), yield, strand, jsonHandler);
 		try {
 			handler->run();
 		}

@@ -12,7 +12,8 @@
 
 /*!
  * \class Server
- * handles the basic connection management via boost::asio
+ * handles the basic osc messaging, in and out.
+ * todo: would be neat if it had been done in a more coroutine-ish kinda way.
  */
 
 using spdlog::info;

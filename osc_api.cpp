@@ -1,5 +1,5 @@
 #include "osc_api.h"
-#include "osc_work.h"
+#include "osc_cmd.h"
 
 #include <functional>
 #include <boost/regex.hpp>
@@ -27,7 +27,7 @@ using spdlog::error;
 using spdlog::debug;
 using spdlog::warn;
 using regex = boost::regex;
-using midi_cmd = xyspi::midi_cmd;
+using midi_cmd = xymidi::cmd;
 
 namespace oscapi {
 	regex osc_re("/(?<MDI>midi(?<PRT>[0-9])?/(?<CMD>"
@@ -39,7 +39,7 @@ namespace oscapi {
 	 * \class oscapi::Parser
 	 * main unit handling translation to and from packed OSC data and internal structures for MIDI and other items of interest
 	 */
-	Processor::Processor(oscapi::workq_t& _workq) : workq(workq) {}
+	Processor::Processor(oscapi::cmdq_t& _cmdq) : cmdq(cmdq) {}
 
 	/*!
 	 * main wrapper decoding an OSC encoded buffer
@@ -53,10 +53,10 @@ namespace oscapi {
 	/*!
 	 * pack one of our recognized midi/whatever messages as OSC
 	 */
-	bool Processor::pack(uint8_t* buffer, std::size_t& size, const std::shared_ptr<work_t> msg)
+	bool Processor::pack(uint8_t* buffer, std::size_t& size, const std::shared_ptr<cmd> msg)
 	{
 		try {
-			if (msg->type == work_type::midi) {
+			if (msg->type == cmd_t::midi) {
 				auto mcp = std::static_pointer_cast<MidiMsg>(msg);
 				if (!mcp) {
 					return false;
@@ -71,69 +71,69 @@ namespace oscapi {
 					base += ('0' + mcp->port);
 				}
 				auto val = mcp->midi.val;
-				if (!xyspi::isSysCmd(mcp->midi.cmd)) {
-					auto chan = xyspi::getCCChan(mcp->midi.cmd);
-					switch (xyspi::getCCCmd(mcp->midi.cmd)) {
-					case (int)xyspi::midi_cmd::noteOn: {
+				if (!xymidi::isSysCmd(mcp->midi.cmd)) {
+					auto chan = xymidi::getCCChan(mcp->midi.cmd);
+					switch (xymidi::getCCCmd(mcp->midi.cmd)) {
+					case (int)midi_cmd::noteOn: {
 						packet.openMessage((base + "/non").c_str(), 3).int32(chan).int32(val.note.pitch).int32(val.note.vel).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::noteOff: {
+					case (int)midi_cmd::noteOff: {
 						packet.openMessage((base + "/nof").c_str(), 3).int32(chan).int32(val.note.pitch).int32(val.note.vel).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::keyPress: {
+					case (int)midi_cmd::keyPress: {
 						packet.openMessage((base + "/key").c_str(), 3).int32(chan).int32(val.note.pitch).int32(val.note.vel).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::ctrl: {
+					case (int)midi_cmd::ctrl: {
 						packet.openMessage((base + "/ctl").c_str(), 3).int32(chan).int32(val.ctrl.tgt).int32(val.ctrl.amt).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::prog: {
+					case (int)midi_cmd::prog: {
 						packet.openMessage((base + "/prg").c_str(), 2).int32(chan).int32(val.prog).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::chanPress: {
+					case (int)midi_cmd::chanPress: {
 						packet.openMessage((base + "/chn").c_str(), 2).int32(chan).int32(val.press).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::bend: {
+					case (int)midi_cmd::bend: {
 						packet.openMessage((base + "/bnd").c_str(), 2).int32(chan).int32(val.bend).closeMessage();
 						break;
 					}
 					}
 				} else {
 					switch (mcp->midi.cmd) {
-					case (int)xyspi::midi_cmd::timeCode: {
+					case (int)midi_cmd::timeCode: {
 						packet.openMessage((base + "/tcd").c_str(), 2).int32(val.time_code.type).int32(val.time_code.val).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::songPos: {
+					case (int)midi_cmd::songPos: {
 						packet.openMessage((base + "/pos").c_str(), 1).int32(val.song_pos).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::songSel: {
+					case (int)midi_cmd::songSel: {
 						packet.openMessage((base + "/sel").c_str(), 1).int32(val.song_sel).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::tuneReq: {
+					case (int)midi_cmd::tuneReq: {
 						packet.openMessage((base + "/tun").c_str(), 0).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::clock: {
+					case (int)midi_cmd::clock: {
 						packet.openMessage((base + "/clk").c_str(), 0).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::start: {
+					case (int)midi_cmd::start: {
 						packet.openMessage((base + "/stt").c_str(), 0).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::cont: {
+					case (int)midi_cmd::cont: {
 						packet.openMessage((base + "/cnt").c_str(), 0).closeMessage();
 						break;
 					}
-					case (int)xyspi::midi_cmd::stop: {
+					case (int)midi_cmd::stop: {
 						packet.openMessage((base + "/stp").c_str(), 0).closeMessage();
 						break;
 					}
@@ -206,7 +206,7 @@ namespace oscapi {
 							break;
 						}
 					}
-					xyspi::midi_t mbuf;
+					xymidi::msg mbuf;
 					try {
 						switch (cmd_ind) {
 						case 4: {

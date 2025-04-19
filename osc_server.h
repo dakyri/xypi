@@ -7,7 +7,7 @@
 #include <boost/asio/ip/udp.hpp>
 #include <boost/asio/signal_set.hpp>
 
-#include "osc_work.h"
+#include "osc_cmd.h"
 
 namespace oscapi {
 	class Processor;
@@ -23,7 +23,7 @@ public:
 	OSCServer(boost::asio::io_service& _ioService, uint16_t port, std::shared_ptr<oscapi::Processor> _api);
 
 	void start();
-	void send_message(const std::shared_ptr<oscapi::work_t> msg);
+	void send_message(const std::shared_ptr<oscapi::cmd> msg);
 	void send_message(const std::string& path, const std::vector<int> & params = {});
 	boost::system::error_code set_current_destination(std::string ip_address, uint16_t port_num);
 

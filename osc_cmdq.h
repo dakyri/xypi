@@ -9,7 +9,7 @@ namespace oscapi {
 	/*!
 	 * base class for items submitted to the osc worker
 	 */
-	enum class work_type : uint8_t {
+	enum class cmd_t : uint8_t {
 		none = 0,
 		midi = 1,
 		port = 2,
@@ -18,12 +18,12 @@ namespace oscapi {
 		control = 5, // arduino analog ins
 		xlmtr = 6 // xy data from an accelerometer. or perhaps touch screen
 	};
-	struct work_t {
-		work_t(work_type _type = work_type::none): type(_type) {}
-		virtual ~work_t() = default;
+	struct cmd {
+		cmd(cmd_t _type = cmd_t::none): type(_type) {}
+		virtual ~cmd() = default;
 
-		const work_type type;
+		const cmd_t type;
 	};
 
-	using workq_t = locked::queue<std::shared_ptr<work_t>>;
+	using cmdq_t = locked::queue<std::shared_ptr<cmd>>;
 };

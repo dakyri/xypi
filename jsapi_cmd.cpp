@@ -1,4 +1,4 @@
-#include "jsapi_work.h"
+#include "jsapi_cmd.h"
 
 #include "jsonutil.h"
 
@@ -10,25 +10,26 @@ using json = nlohmann::json;
 using spdlog::info;
 using spdlog::debug;
 
+namespace jsapi {
 
-std::shared_ptr<jsapi::work_t> PingWork::create(const std::string& cmd, jsapi::jobid_t id, const nlohmann::json& request)
+std::shared_ptr<cmd_t> cmd_t::create(const std::string& cmd, cmd_id id, const nlohmann::json& request)
 {
-	return std::make_shared<PingWork>(cmd, id);
+	return std::make_shared<cmd_t>(cmd, id);
 }
 
-PingWork::PingWork(const std::string& cmd, jsapi::jobid_t id) : work_t(cmd, id, 0) {}
-
-nlohmann::json PingWork::toJson()
+nlohmann::json cmd_t::toJson()
 {
 	nlohmann::json jsonval;
 	jsonval["cmd"] = cmd;
 	return jsonval;
 }
 
-std::pair<jsapi::work_t::work_status, json> PingWork::process()
+std::pair<jsapi::cmd_t::status, json> cmd_t::process()
 {
 	json result;
 	debug("PingWork::process(result {}))", id);
 //	result["usb"] = dongle->ping();
-	return {jsapi::work_t::work_status::WORK_IMMEDIATE, result};
+	return {cmd_t::status::CMD_IMMEDIATE, result};
+}
+
 }

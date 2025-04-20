@@ -18,8 +18,8 @@ using spdlog::warn;
  * and the main work thread blocks waiting for queue items to process. 
  */
 
-JSApiWorker::JSApiWorker(jsapi::workq_t& _workq, jsapi::results_t& _results)
-	: workq(_workq), results(_results)
+JSApiWorker::JSApiWorker(jsapi::cmdq_t& _cmdq, jsapi::results_t& _results)
+	: cmdq(_cmdq), results(_results)
 {}
 
 JSApiWorker::~JSApiWorker() { stop(); }
@@ -42,7 +42,7 @@ void JSApiWorker::run()
 void JSApiWorker::stop()
 {
 	if (isRunning.exchange(false)) {
-		workq.disableWait();
+		cmdq.disableWait();
 		if (myThread.joinable()) myThread.join();
 	}
 }
@@ -52,9 +52,9 @@ void JSApiWorker::stop()
  */
 void JSApiWorker::runner()
 {
-	workq.enableWait();
+	cmdq.enableWait();
 	while (isRunning) {
-		auto optWork = workq.front();
+		auto optWork = cmdq.front();
 		if (optWork.second) {
 			// specifically make a new reference to the shared_ptr to work with, so we can leave the work at the top of q
 			// workRef should still be valid even if it is no longer front ("ping" is pushed to front, not end of q)
@@ -67,19 +67,19 @@ void JSApiWorker::runner()
 				auto res = work->process();
 				auto &r = res.second;
 				debug("processed!");
-				if (res.first == jsapi::work_t::work_status::WORK_SCREWED) {
+				if (res.first == jsapi::cmd_t::status::CMD_ERROR) {
 					debug("JSApiWorker({}) fails with error message {}", currentResultId, r["error"].get<std::string>());
 				}
 				results.insert(currentResultId, jsapi::result_t(currentResultId, r));
 			} catch (const std::exception& e) {
 				error("JSApiWorker() gets exception: {}", e.what());
 			}
-			// we've either added a calculation to the results or had an exception and added an error to the resuls,
+			// we've either done a thing, or had an exception
 			// so now take the item from the queue. as we push to either end of the queue, our front element from before
 			// is not necessarily still the front element, but the optWork ref will still be valid
-			workq.remove(optWork.first);
+			cmdq.remove(optWork.first);
 		} else {
-			if (isRunning && !workq.waitEnabled()) std::this_thread::sleep_for(10us);
+			if (isRunning && !cmdq.waitEnabled()) std::this_thread::sleep_for(10us);
 		}
 	}
 }

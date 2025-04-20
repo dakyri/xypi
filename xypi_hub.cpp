@@ -29,7 +29,7 @@ XypiHub::XypiHub(std::string dst_osc_adr, uint16_t dst_osc_prt, uint16_t rcv_osc
 	oscParser = std::make_shared<oscapi::Processor>(oscOutQ);
 	oscServer = std::make_unique<OSCServer>(ioService, rcv_osc_port, oscParser);
 	oscServer->set_current_destination(dst_osc_adr, dst_osc_prt);
-	jsonApi = std::make_shared<JSONHandler>(jsapi::workq_t(), jsapi::results_t());
+	jsonApi = std::make_shared<JSONHandler>(jsapi::cmdq_t(), jsapi::results_t());
 	wsServer = std::make_unique<WSServer>(ioService, ws_port, jsonApi);
 
 	oscWorker = std::make_unique<OSCWorker>(*oscServer.get(), oscOutQ);

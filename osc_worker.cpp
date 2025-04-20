@@ -21,7 +21,7 @@ using spdlog::warn;
  *		be refactored into a base class
  */
 
-OSCWorker::OSCWorker(OSCServer &_oscurver, oscapi::workq_t& _workq)
+OSCWorker::OSCWorker(OSCServer &_oscurver, oscapi::cmdq_t& _workq)
 	: oscurver(_oscurver), workq(_workq)
 {}
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "osc_workq.h"
+#include "osc_cmd.h"
 #include "osc_server.h"
 
 #include <atomic>
@@ -9,7 +9,7 @@
 class OSCWorker
 {
 public:
-	OSCWorker(OSCServer &_oscurver, oscapi::workq_t& workq);
+	OSCWorker(OSCServer &_oscurver, oscapi::cmdq_t& workq);
 	~OSCWorker();
 
 	void run();
@@ -23,5 +23,5 @@ private:
 	std::thread myThread;
 
 	OSCServer &oscurver;
-	oscapi::workq_t& workq;
+	oscapi::cmdq_t& workq;
 };

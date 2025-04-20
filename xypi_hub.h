@@ -1,6 +1,6 @@
 #pragma once
 
-#include "osc_cmdq.h"
+#include "osc_cmd.h"
 
 #include <memory>
 
@@ -34,7 +34,7 @@ private:
 	std::unique_ptr<WSServer> wsServer;
 
 
-	oscapi::workq_t oscOutQ;
+	oscapi::cmdq_t oscOutQ;
 
 	uint16_t threadCount;
 };

@@ -23,7 +23,7 @@ public:
 	OSCServer(boost::asio::io_service& _ioService, uint16_t port, std::shared_ptr<oscapi::Processor> _api);
 
 	void start();
-	void send_message(const std::shared_ptr<oscapi::cmd> msg);
+	void send_message(const std::shared_ptr<oscapi::cmd_t> msg);
 	void send_message(const std::string& path, const std::vector<int> & params = {});
 	boost::system::error_code set_current_destination(std::string ip_address, uint16_t port_num);
 

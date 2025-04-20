@@ -53,10 +53,10 @@ namespace oscapi {
 	/*!
 	 * pack one of our recognized midi/whatever messages as OSC
 	 */
-	bool Processor::pack(uint8_t* buffer, std::size_t& size, const std::shared_ptr<cmd> msg)
+	bool Processor::pack(uint8_t* buffer, std::size_t& size, const std::shared_ptr<cmd_t> msg)
 	{
 		try {
-			if (msg->type == cmd_t::midi) {
+			if (msg->type == cmd_type::midi) {
 				auto mcp = std::static_pointer_cast<MidiMsg>(msg);
 				if (!mcp) {
 					return false;

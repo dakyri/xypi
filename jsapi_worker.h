@@ -1,6 +1,6 @@
 #pragma once
 
-#include "jsapi_workq.h"
+#include "jsapi_cmd.h"
 
 #include <atomic>
 #include <thread>
@@ -8,7 +8,7 @@
 class JSApiWorker
 {
 public:
-	JSApiWorker(jsapi::workq_t& workq, jsapi::results_t& results);
+	JSApiWorker(jsapi::cmdq_t& _cq, jsapi::results_t& results);
 	~JSApiWorker();
 
 	void run();
@@ -21,6 +21,6 @@ private:
 	std::atomic<bool> isRunning;
 	std::thread myThread;
 
-	jsapi::workq_t& workq;
+	jsapi::cmdq_t& cmdq;
 	jsapi::results_t& results;
 };

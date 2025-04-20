@@ -1,6 +1,6 @@
 #pragma once
 
-#include "jsapi_cmdq.h"
+#include "jsapi_cmd.h"
 
 #include <atomic>
 #include <tuple>
@@ -11,7 +11,7 @@
 class JSONHandler
 {
 public:
-	JSONHandler(jsapi::workq_t& workq, jsapi::results_t& results);
+	JSONHandler(jsapi::cmdq_t& workq, jsapi::results_t& results);
 
 	std::pair<bool, nlohmann::json> process(const nlohmann::json& request);
 
@@ -21,7 +21,7 @@ public:
 	void debugDump();
 
 private:
-	jsapi::workq_t& workq;
+	jsapi::cmdq_t& cmdq;
 	jsapi::results_t& results;
-	static std::atomic<jsapi::jobid_t> jobid;
+	static std::atomic<jsapi::cmd_id> cmdid;
 };

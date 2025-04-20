@@ -1,7 +1,7 @@
 #include "json_handler.h"
 
 #include "jsonutil.h"
-#include "jsapi_work.h"
+#include "jsapi_cmd.h"
 
 #include <functional>
 
@@ -14,12 +14,12 @@ using spdlog::error;
 using spdlog::debug;
 using spdlog::warn;
 
-std::atomic<jsapi::jobid_t> JSONHandler::jobid = 0;
+std::atomic<jsapi::cmd_id> JSONHandler::cmdid = 0;
 
 //! essential data for describing an api command
 struct api_t {
 	std::function<json(JSONHandler*, const json&)> immediateProcessor;
-	std::function<std::shared_ptr<jsapi::work_t>(const std::string&, jsapi::jobid_t, const json&)> workQueueFactory;
+	std::function<std::shared_ptr<jsapi::cmd_t>(const std::string&, jsapi::cmd_id, const json&)> workQueueFactory;
 	bool urgent;
 };
 
@@ -34,11 +34,11 @@ std::unordered_map<std::string, api_t> api {
 
 /*!
  */
-JSONHandler::JSONHandler(jsapi::workq_t& _workq, jsapi::results_t& _results) : workq(_workq), results(_results) {}
+JSONHandler::JSONHandler(jsapi::cmdq_t& _cmdq, jsapi::results_t& _results) : cmdq(_cmdq), results(_results) {}
 
 /*!
  * main processing hook:
- * takes json in, puts json out, and sets up the work queue in between.
+ * takes json in, puts json out, and sets up the command queue in between.
  */
 std::pair<bool, json> JSONHandler::process(const json& request)
 {
@@ -54,14 +54,14 @@ std::pair<bool, json> JSONHandler::process(const json& request)
 		if (api_inf.immediateProcessor) {
 			response = api_inf.immediateProcessor(this, request);
 		} else {
-			auto id = ++jobid;
+			auto id = ++cmdid;
 			auto work = api_inf.workQueueFactory(cmd, id, request);
 			auto result = work->process();
-			if (result.first == jsapi::work_t::work_status::WORK_QUEUED) {
+			if (result.first == jsapi::cmd_t::status::CMD_SCHEDULED) {
 				if (urgent || api_inf.urgent) {
-					workq.push_front(std::move(work));
+					cmdq.push_front(std::move(work));
 				} else {
-					workq.push(std::move(work));
+					cmdq.push(std::move(work));
 				}
 				debug("queueing command {} with id {}", cmd, id);
 			} else {
@@ -87,7 +87,7 @@ std::pair<bool, json> JSONHandler::process(const json& request)
  */
 json JSONHandler::getCmd(json request)
 {
-	const jsapi::jobid_t id = std::stoul(jutil::need_s(request, "id"));
+	const jsapi::cmd_id id = std::stoul(jutil::need_s(request, "id"));
 	debug("getCmd({})", id);
 	json response;
 	if (id == 0) return jutil::errorJSON("Bad request id 0");
@@ -96,7 +96,7 @@ json JSONHandler::getCmd(json request)
 		response["state"] = "done";
 		response["resp"] = result.first.result;
 	} else {
-		auto qorder = workq.find_qorder([id](const std::shared_ptr<jsapi::work_t>& v) -> bool { return v->id == id; });
+		auto qorder = cmdq.find_qorder([id](const std::shared_ptr<jsapi::cmd_t>& v) -> bool { return v->id == id; });
 		if (qorder >= 0) {
 			response["state"] = "enqueued";
 			response["pos"] = qorder;
@@ -118,8 +118,8 @@ json JSONHandler::listCmd(json request)
 	json workList;
 	json resultList;
 
-	workq.foreach([&workList](const std::shared_ptr<jsapi::work_t>& v) { workList[std::to_string(v->id)] = v->toJson(); });
-	results.foreach([&resultList](const jsapi::jobid_t& k, const jsapi::result_t& v) { resultList[std::to_string(k)] = v.result; });
+	cmdq.foreach([&workList](const std::shared_ptr<jsapi::cmd_t>& v) { workList[std::to_string(v->id)] = v->toJson(); });
+	results.foreach([&resultList](const jsapi::cmd_id& k, const jsapi::result_t& v) { resultList[std::to_string(k)] = v.result; });
 
 	response["requests"] = workList;
 	response["responses"] = resultList;
@@ -128,7 +128,7 @@ json JSONHandler::listCmd(json request)
 
 void JSONHandler::debugDump()
 {
-	debug("api handler, current job id {}", jobid);
+	debug("api handler, current job id {}", cmdid);
 	results.foreach([](uint32_t k, jsapi::result_t v) { debug("> result id {}", k); });
-	workq.foreach([](const std::shared_ptr<jsapi::work_t>& v) { debug("> work id {}", v->id); });
+	cmdq.foreach([](const std::shared_ptr<jsapi::cmd_t>& v) { debug("> work id {}", v->id); });
 }

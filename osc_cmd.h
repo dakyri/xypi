@@ -12,8 +12,8 @@
 namespace oscapi {
 
 /*!
-	* base class for items submitted to the osc worker
-	*/
+ * base class for items submitted to the osc worker
+ */
 enum class cmd_type : uint8_t {
 	none = 0,
 	midi = 1,
@@ -37,7 +37,6 @@ using midi_t = xymidi::msg;
 class MidiMsg : public cmd_t {
 public:
 	MidiMsg() : cmd_t(cmd_type::midi) {}
-	uint8_t port;
 	midi_t midi;
 };
 

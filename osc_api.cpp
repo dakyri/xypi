@@ -30,10 +30,7 @@ using regex = boost::regex;
 using midi_cmd = xymidi::cmd;
 
 namespace oscapi {
-	regex osc_re("/(?<MDI>midi(?<PRT>[0-9])?/(?<CMD>"
-		"(non)|(nof)|(key)|(ctl)|(prg)|(chn)|(bnd)" "|"			// numbered submatches [4..10]
-		"(sex)|(tcd)|(pos)|(sel)|(tun)|(clk)|(stt)|(cnt)|(stp)" "))"	// numbered submatches [11..19]
-	);
+	regex osc_re("/(?<MDI>midi(?<PRT>[0-9])?)");
 
 	/*!
 	 * \class oscapi::Parser
@@ -67,79 +64,10 @@ namespace oscapi {
 					.openBundle(1234ULL)
 				*/
 				std::string base("/midi");
-				if (mcp->port > 0) {
-					base += ('0' + mcp->port);
+				if (mcp->midi.port > 0) {
+					base += ('0' + mcp->midi.port);
 				}
-				auto val = mcp->midi.val;
-				if (!xymidi::isSysCmd(mcp->midi.cmd)) {
-					auto chan = xymidi::getCCChan(mcp->midi.cmd);
-					switch (xymidi::getCCCmd(mcp->midi.cmd)) {
-					case (int)midi_cmd::noteOn: {
-						packet.openMessage((base + "/non").c_str(), 3).int32(chan).int32(val.note.pitch).int32(val.note.vel).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::noteOff: {
-						packet.openMessage((base + "/nof").c_str(), 3).int32(chan).int32(val.note.pitch).int32(val.note.vel).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::keyPress: {
-						packet.openMessage((base + "/key").c_str(), 3).int32(chan).int32(val.note.pitch).int32(val.note.vel).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::ctrl: {
-						packet.openMessage((base + "/ctl").c_str(), 3).int32(chan).int32(val.ctrl.tgt).int32(val.ctrl.amt).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::prog: {
-						packet.openMessage((base + "/prg").c_str(), 2).int32(chan).int32(val.prog).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::chanPress: {
-						packet.openMessage((base + "/chn").c_str(), 2).int32(chan).int32(val.press).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::bend: {
-						packet.openMessage((base + "/bnd").c_str(), 2).int32(chan).int32(val.bend).closeMessage();
-						break;
-					}
-					}
-				} else {
-					switch (mcp->midi.cmd) {
-					case (int)midi_cmd::timeCode: {
-						packet.openMessage((base + "/tcd").c_str(), 2).int32(val.time_code.type).int32(val.time_code.val).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::songPos: {
-						packet.openMessage((base + "/pos").c_str(), 1).int32(val.song_pos).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::songSel: {
-						packet.openMessage((base + "/sel").c_str(), 1).int32(val.song_sel).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::tuneReq: {
-						packet.openMessage((base + "/tun").c_str(), 0).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::clock: {
-						packet.openMessage((base + "/clk").c_str(), 0).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::start: {
-						packet.openMessage((base + "/stt").c_str(), 0).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::cont: {
-						packet.openMessage((base + "/cnt").c_str(), 0).closeMessage();
-						break;
-					}
-					case (int)midi_cmd::stop: {
-						packet.openMessage((base + "/stp").c_str(), 0).closeMessage();
-						break;
-					}
-
-					}
-				}
+				packet.openMessage(base.c_str(), 1).midi({mcp->midi.cmd, mcp->midi.val1, mcp->midi.val2, mcp->midi.port}).closeMessage();
 				/*
 				packet.closeBundle();
 				*/
@@ -199,99 +127,9 @@ namespace oscapi {
 				if (results["MDI"].matched) {
 					debug("matches and recognises midi path '{}', cmd '{}'", results["MDI"].str(), results["CMD"].str());
 					uint8_t port = results["PRT"].matched ? results["PRT"].str()[0] - '0' : 0;
-					uint8_t cmd_ind = 0;
-					for (int i = 4; i <= 18; ++i) {
-						if (results[i].matched) {
-							cmd_ind = i;
-							break;
-						}
-					}
-					xymidi::msg mbuf;
 					try {
-						switch (cmd_ind) {
-						case 4: {
-							auto chan = args.int32(), pitch = args.int32(), vel = args.int32();
-							mbuf.noteon(chan, pitch, vel);
-							debug("note on {} {} {}", mbuf.channel(), mbuf.val.note.pitch, mbuf.val.note.vel);
-							break;
-						}
-						case 5: {
-							auto chan = args.int32(), pitch = args.int32(), vel = args.int32();
-							mbuf.noteoff(chan, pitch, vel);
-							debug("note off {} {} {}", mbuf.channel(), mbuf.val.note.pitch, mbuf.val.note.vel);
-							break;
-						}
-						case 6: {
-							auto chan = args.int32(), pitch = args.int32(), vel = args.int32();
-							mbuf.keypress(chan, pitch, vel);
-							debug("keypress {} {} {}", mbuf.channel(), mbuf.val.note.pitch, mbuf.val.note.vel);
-							break;
-						}
-						case 7: {
-							auto chan = args.int32(), tgt = args.int32(), amt = args.int32();
-							mbuf.control(chan, tgt, amt);
-							debug("control {} {} {}", mbuf.channel(), mbuf.val.ctrl.tgt, mbuf.val.ctrl.amt);
-							break;
-						}
-						case 8: {
-							auto chan = args.int32(), prog = args.int32();
-							mbuf.prog(chan, prog);
-							debug("prog {} {}", mbuf.channel(), mbuf.val.prog);
-							break;
-						}
-						case 9: {
-							auto chan = args.int32(), press = args.int32();
-							mbuf.chanpress(chan, press);
-							debug("chanpress {} {}", mbuf.channel(), mbuf.val.press);
-							break;
-						}
-						case 10: {
-							auto chan = args.int32(), bend = args.int32();
-							mbuf.bend(chan, bend);
-							debug("bend {} {}", mbuf.channel(), mbuf.val.bend);
-							break;
-						}
-						case 11:
-//							mbuf.sysx();
-							throw new OSCPP::Error("unimplemented sysx");
-							break;
-						case 12: {
-							auto typ = args.int32(), val = args.int32();
-							mbuf.timecode(typ, val);
-							debug("timecode {} {}", mbuf.val.time_code.type, mbuf.val.time_code.val);
-							break;
-						}
-						case 13: 
-							mbuf.songpos(args.int32());
-							debug("songpos {}", mbuf.val.song_pos);
-							break;
-						case 14: {
-							mbuf.songsel(args.int32());
-							debug("songsel {}", mbuf.val.song_sel);
-							break;
-						}
-						case 15:
-							mbuf.tune();
-							debug("tune");
-							break;
-						case 16:
-							mbuf.clock();
-							debug("clock");
-							break;
-						case 17:
-							mbuf.start();
-							debug("start");
-							break;
-						case 18:
-							mbuf.cont();
-							debug("cont");
-							break;
-						case 19:
-							mbuf.stop();
-							debug("stop");
-							break;
-						}
-
+						const auto m = args.midi();
+						xymidi::msg mbuf(m.status, m.data1, m.data2, m.port);
 					}
 					catch (const OSCPP::Error &e) {
 						debug("Oscpp error processing {}: {}", results["CMD"].str(), e.what());

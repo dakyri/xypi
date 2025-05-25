@@ -13,16 +13,15 @@ using spdlog::warn;
 
 /*!
  * \class OSCWorker
- *   the bit that does stuff. we run in our own thread, outside of the asio threadpool, and inspect the
- * shared queue for new arrivals, do them and pop results into the results structure. the queue has a condition variable
- * and the main work thread blocks waiting for queue items to process.
+ *   the bit that does stuff. we run in our own thread, outside of the asio threadpool. we are basically scanning our messsage queue
+ * and broadcasting anything appropriate to the OSC socket. Presumably this queue is added to be either from the duino via the spi input, or by any locally
+ * connected midi ports
  *  TODO:
- * - some commonality with the ws/json api worker, and perhaps with whatever worker handles the spi bus. maybe these should
- *		be refactored into a base class
+ * - some commonality with the ws/json api worker
  */
 
-OSCWorker::OSCWorker(OSCServer &_oscurver, oscapi::cmdq_t& _workq)
-	: oscurver(_oscurver), workq(_workq)
+OSCWorker::OSCWorker(OSCServer &_oscurver, oscapi::msgq_t& _msgq)
+	: oscurver(_oscurver), msgq(_msgq)
 {}
 
 OSCWorker::~OSCWorker() { stop(); }
@@ -45,7 +44,7 @@ void OSCWorker::run()
 void OSCWorker::stop()
 {
 	if (isRunning.exchange(false)) {
-		workq.disableWait();
+		msgq.disableWait();
 		if (myThread.joinable()) myThread.join();
 	}
 }
@@ -55,22 +54,22 @@ void OSCWorker::stop()
  */
 void OSCWorker::runner()
 {
-	workq.enableWait();
+	msgq.enableWait();
 	while (isRunning) {
 		// TODO: perhaps the whole current queue could be bundled
-		auto optWork = workq.front();
-		if (optWork.second) {
+		auto optMsg = msgq.front();
+		if (optMsg.second) {
 			// specifically make a new reference to the shared_ptr to work with, so we can leave the work at the top of q
 			// workRef should still be valid even if it is no longer front
-			auto& work = optWork.first;
+			auto& msg = optMsg.first;
 			try {
-				oscurver.send_message(work);
+				oscurver.send_message(msg);
 			} catch (const std::exception& e) {
 				error("OSCWorker() gets exception: {}", e.what());
 			}
-			workq.remove(optWork.first); // now it's safe to remove!
+			msgq.remove(optMsg.first); // now it's safe to remove!
 		} else {
-			if (isRunning && !workq.waitEnabled()) std::this_thread::sleep_for(10us);
+			if (isRunning && !msgq.waitEnabled()) std::this_thread::sleep_for(10us);
 		}
 	}
 }

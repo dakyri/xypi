@@ -1,9 +1,10 @@
 #include "xypi_hub.h"
 
-#include "osc_api.h"
+#include "osc_handler.h"
 #include "osc_server.h"
 #include "osc_worker.h"
 #include "json_handler.h"
+#include "jsapi_worker.h"
 #include "ws_server.h"
 
 #include "spdlog/spdlog.h"
@@ -26,13 +27,14 @@ XypiHub::XypiHub(std::string dst_osc_adr, uint16_t dst_osc_prt, uint16_t rcv_osc
 	: threadCount(threadCount > 0 ? threadCount : 1)
 {
 	info("Xypi servers running on {} threads: OSC server on port {}, WS server on port {}.", threadCount, rcv_osc_port, ws_port);
-	oscParser = std::make_shared<oscapi::Processor>(oscOutQ);
+	oscParser = std::make_shared<oscapi::Processor>(spiInQ);
 	oscServer = std::make_unique<OSCServer>(ioService, rcv_osc_port, oscParser);
 	oscServer->set_current_destination(dst_osc_adr, dst_osc_prt);
-	jsonApi = std::make_shared<JSONHandler>(jsapi::cmdq_t(), jsapi::results_t());
-	wsServer = std::make_unique<WSServer>(ioService, ws_port, jsonApi);
+	oscWorker = std::make_unique<OSCWorker>(*oscServer.get(), oscInQ);
 
-	oscWorker = std::make_unique<OSCWorker>(*oscServer.get(), oscOutQ);
+	jsonApi = std::make_shared<JSONHandler>(spiInQ, oscInQ, cmdQ, jsapi::results_t()); // TODO: really not sure what to do with these results
+	wsServer = std::make_unique<WSServer>(ioService, ws_port, jsonApi);
+	jsApiWorker = std::make_unique<JSApiWorker>(cmdQ, jsapi::results_t());
 }
 
 XypiHub::~XypiHub() = default;
@@ -43,8 +45,12 @@ XypiHub::~XypiHub() = default;
  */
 void XypiHub::run()
 {
-//	oscServer->start();
-//	oscWorker->run();
+	spiInQ.disableWait();
+	oscInQ.enableWait();
+	cmdQ.enableWait();
+	
+	oscServer->start();
+	oscWorker->run();
 	wsServer->start();
 	info("Xypi::run(): Servers started and worker running ;)");
 #ifdef SINGLE_THREADED_IO

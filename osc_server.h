@@ -20,10 +20,10 @@ using udp = boost::asio::ip::udp;
 class OSCServer
 {
 public:
-	OSCServer(boost::asio::io_service& _ioService, uint16_t port, std::shared_ptr<oscapi::Processor> _api);
+	OSCServer(boost::asio::io_service& _ioService, uint16_t port, std::shared_ptr<oscapi::Processor> _handler);
 
 	void start();
-	void send_message(const std::shared_ptr<oscapi::cmd_t> msg);
+	void send_message(const std::shared_ptr<oscapi::msg_t> msg);
 	void send_message(const std::string& path, const std::vector<int> & params = {});
 	boost::system::error_code set_current_destination(std::string ip_address, uint16_t port_num);
 
@@ -39,5 +39,5 @@ private:
 	boost::asio::signal_set sigWaiter;
 	boost::asio::io_service& ioService;
 
-	std::shared_ptr<oscapi::Processor> api;
+	std::shared_ptr<oscapi::Processor> handler;
 };

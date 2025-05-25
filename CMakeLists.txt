@@ -24,7 +24,7 @@ add_executable(${PROJECT_NAME}
 	xypi_hub.cpp
 	osc_server.cpp
 	osc_worker.cpp
-	osc_api.cpp
+	osc_handler.cpp
 	ws_server.cpp
 	ws_session_handler.cpp
 	jsapi_cmd.cpp

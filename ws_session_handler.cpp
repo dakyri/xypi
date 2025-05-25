@@ -4,6 +4,8 @@
 #include <boost/bind.hpp>
 #include <boost/regex.hpp>
 #include <boost/beast/core/buffers_to_string.hpp>
+#include <boost/beast/core/multi_buffer.hpp>
+#include <boost/beast/core/ostream.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/read_until.hpp>
@@ -13,8 +15,6 @@
 #include <boost/asio/placeholders.hpp>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
-#include <util/sha1.hpp>
-#include <util/base64.h>
 
 using spdlog::info;
 using spdlog::error;

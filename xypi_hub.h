@@ -10,6 +10,7 @@ class OSCServer;
 class OSCWorker;
 class JSONHandler;
 class WSServer;
+class JSApiWorker;
 
 namespace oscapi {
 	class Processor;
@@ -32,9 +33,11 @@ private:
 	std::unique_ptr<OSCWorker> oscWorker;
 	std::shared_ptr<JSONHandler> jsonApi;
 	std::unique_ptr<WSServer> wsServer;
+	std::unique_ptr<JSApiWorker> jsApiWorker;
 
-
-	oscapi::cmdq_t oscOutQ;
+	oscapi::msgq_t spiInQ;
+	oscapi::msgq_t oscInQ;
+	jsapi::cmdq_t cmdQ;
 
 	uint16_t threadCount;
 };

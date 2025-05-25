@@ -70,6 +70,15 @@ public:
 		return{ m_queue.front(), true };
 	}
 
+	std::pair<T, bool> front(const chrono::duration timeout)
+	{
+		std::unique_lock<std::mutex> conditionLock(m_mutex);
+		m_ready.wait_for(conditionLock, timeout, [&]() { return !m_enabled || !m_queue.empty(); });
+		if (m_queue.empty()) return { T(), false };
+
+		return{ m_queue.front(), true };
+	}
+
 	/*!
 	 * removes the v element from the queue
 	 */
@@ -100,6 +109,15 @@ public:
 	{
 		const std::unique_lock<std::mutex> lock(m_mutex);
 		for (auto const& it : m_queue) { f(it); }
+	}
+
+	/*!
+	 * runs the given function over every queued element
+	 */
+	bool empty()
+	{
+		const std::unique_lock<std::mutex> lock(m_mutex);
+		return m_queue.empty();
 	}
 
 private:

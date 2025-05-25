@@ -4,6 +4,7 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
+				"xypiduino/include",
                 "C:/Program Files (x86)/boost/include/boost-1_74",
                 "C:/Program Files (x86)/oscpp/include",
                 "C:/Program Files (x86)/nlohmann_json/include",

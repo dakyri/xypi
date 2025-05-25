@@ -26,7 +26,7 @@ struct api_t {
 // clang-format off
 //! map between api commands and properties
 std::unordered_map<std::string, api_t> api {
-	{"ping",		{nullptr,				&PingWork::create,				true}},
+//	{"ping",		{nullptr,				&PingWork::create,				true}},
 	{"get",			{&JSONHandler::getCmd,	nullptr,						false}},
 	{"list",		{&JSONHandler::listCmd,	nullptr,						false}}
 };
@@ -34,7 +34,8 @@ std::unordered_map<std::string, api_t> api {
 
 /*!
  */
-JSONHandler::JSONHandler(jsapi::cmdq_t& _cmdq, jsapi::results_t& _results) : cmdq(_cmdq), results(_results) {}
+JSONHandler::JSONHandler(oscapi::msgq_t &_spiInQ, oscapi::msgq_t &_oscInQ, jsapi::cmdq_t& _cmdq, jsapi::results_t& _results)
+	: spiInQ(_spiInQ), oscInQ(_oscInQ), cmdq(_cmdq), results(_results) {}
 
 /*!
  * main processing hook:

@@ -1,5 +1,5 @@
 #include "osc_server.h"
-#include "osc_api.h"
+#include "osc_handler.h"
 
 // hack to avoid a warning about deprecated boost headers included by boost. seriously.
 #include <boost/core/scoped_enum.hpp>
@@ -24,11 +24,11 @@ using spdlog::warn;
 namespace asio = boost::asio;
 using udp = boost::asio::ip::udp;
 
-OSCServer::OSCServer(asio::io_service& _ioService, uint16_t port, std::shared_ptr<oscapi::Processor> _api)
+OSCServer::OSCServer(asio::io_service& _ioService, uint16_t port, std::shared_ptr<oscapi::Processor> _handler)
 	: socket(_ioService, udp::endpoint(udp::v4(), port)),
 	  sigWaiter(_ioService, SIGINT, SIGTERM),
 	  ioService(_ioService),
-	  api(_api)
+	  handler(_handler)
 {
 	set_current_destination("127.0.0.1", 57120);
 }
@@ -59,7 +59,7 @@ void OSCServer::recv_handler(boost::system::error_code ec, std::size_t bytes_rec
 			debug("OscServer rejecting a bounced packet ({}:{})", endp->address().to_string(), endp->port());
 		} else {
 			debug("OscServer receiving from {}:{}", endp->address().to_string(), endp->port());
-			api->parse(buf->data(), bytes_recvd);
+			handler->parse(buf->data(), bytes_recvd);
 			send_message("/viskas/gerai", { 1, 2, 1, 2, 3, 4 });
 		}
 	} else {
@@ -95,11 +95,11 @@ void OSCServer::send_handler(boost::system::error_code ec, std::size_t bytes_sen
  * TODO:
  *	- possibly shift the buffer type to a vector so we can be a bit more flexible. but 1024 as here should be adequate in almost any sane case.
  */
-void OSCServer::send_message(const std::shared_ptr<oscapi::cmd_t> msg) {
+void OSCServer::send_message(const std::shared_ptr<oscapi::msg_t> msg) {
 	auto outBuf = std::make_shared<buf_t>();
 	auto dstEndpoint = std::make_shared<udp::endpoint>(currentDestination);
 	std::size_t outBufLen = outBuf->size();
-	if (api->pack(outBuf->data(), outBufLen, msg)) {
+	if (handler->pack(outBuf->data(), outBufLen, msg)) {
 		socket.async_send_to(
 			boost::asio::buffer(*outBuf, outBufLen),
 			*dstEndpoint,
@@ -108,12 +108,16 @@ void OSCServer::send_message(const std::shared_ptr<oscapi::cmd_t> msg) {
 	}
 }
 
+/*!
+ * message handler for a fixed message on the given path, with an arbitrary set of int parameters.
+ * this method is mainly for testing, diagnostics and control messages
+ */
 void OSCServer::send_message(const std::string & path, const std::vector<int> & params)
 {
 	auto outBuf = std::make_shared<buf_t>();
 	auto dstEndpoint = std::make_shared<udp::endpoint>(currentDestination);
 	std::size_t outBufLen = outBuf->size();
-	if (api->pack(outBuf->data(), outBufLen, path, params)) {
+	if (handler->pack(outBuf->data(), outBufLen, path, params)) {
 		socket.async_send_to(
 			boost::asio::buffer(*outBuf, outBufLen),
 			*dstEndpoint,

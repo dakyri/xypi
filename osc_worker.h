@@ -9,7 +9,7 @@
 class OSCWorker
 {
 public:
-	OSCWorker(OSCServer &_oscurver, oscapi::cmdq_t& workq);
+	OSCWorker(OSCServer &_oscurver, oscapi::msgq_t& msgq);
 	~OSCWorker();
 
 	void run();
@@ -23,5 +23,5 @@ private:
 	std::thread myThread;
 
 	OSCServer &oscurver;
-	oscapi::cmdq_t& workq;
+	oscapi::msgq_t& msgq;
 };

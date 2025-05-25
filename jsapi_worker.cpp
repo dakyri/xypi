@@ -13,9 +13,8 @@ using spdlog::warn;
 
 /*!
  * \class JSApiWorker
- *   the bit that does stuff. we run in our own thread, outside of the asio threadpool, and inspect the
- * shared queue for new arrivals, do them and pop results into the results structure. the queue has a condition variable
- * and the main work thread blocks waiting for queue items to process. 
+ *	mainly here to do things that can't be done immediately in the io thread and which would unduly block that, in particular
+ *	- any operations on external programs such as super collider
  */
 
 JSApiWorker::JSApiWorker(jsapi::cmdq_t& _cmdq, jsapi::results_t& _results)

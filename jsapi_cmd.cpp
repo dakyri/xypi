@@ -27,7 +27,7 @@ nlohmann::json cmd_t::toJson()
 std::pair<jsapi::cmd_t::status, json> cmd_t::process()
 {
 	json result;
-	debug("PingWork::process(result {}))", id);
+	debug("jsappi_cmd process {}", id);
 //	result["usb"] = dongle->ping();
 	return {cmd_t::status::CMD_IMMEDIATE, result};
 }

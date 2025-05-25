@@ -13,9 +13,14 @@ namespace jsapi {
 
 using cmd_id = uint32_t; //!< id for the command
 /*!
-	* base class for commands sent to the hub via the jaon api
-	* some of these might be immediate, and some scheduled
-	*/
+ * base class for commands sent to the hub via the jaon api
+ * some of these might be immediate, and some scheduled
+ *	- send config information to the duino via spi
+ *	- send commands to supercollider locally
+ *	- command to other running audio programs
+ *	- ping, pong and general diagnostic stuff
+ *	- diagnostics, stop/start/restart on the osc server
+ */
 struct cmd_t {
 	static std::shared_ptr<cmd_t> create(const std::string& cmd, jsapi::cmd_id id, const nlohmann::json& req);
 
@@ -33,8 +38,8 @@ struct cmd_t {
 };
 
 /*!
-	* base class for cmd results
-	*/
+ * base class for cmd results
+ */
 struct result_t {
 	result_t(cmd_id i, const nlohmann::json r) : id(i), result(std::move(r)) {}
 	result_t() : id(0) {}

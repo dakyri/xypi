@@ -35,6 +35,8 @@ XypiHub::XypiHub(std::string dst_osc_adr, uint16_t dst_osc_prt, uint16_t rcv_osc
 	jsonApi = std::make_shared<JSONHandler>(spiInQ, oscInQ, cmdQ, jsapi::results_t()); // TODO: really not sure what to do with these results
 	wsServer = std::make_unique<WSServer>(ioService, ws_port, jsonApi);
 	jsApiWorker = std::make_unique<JSApiWorker>(cmdQ, jsapi::results_t());
+
+	midiWorker = std::make_unique<MidiWorker>(spiInQ, oscInQ, midiOutQ);
 }
 
 XypiHub::~XypiHub() = default;

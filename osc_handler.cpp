@@ -1,5 +1,5 @@
-#include "osc_api.h"
-#include "osc_cmd.h"
+#include "osc_handler.h"
+#include "message.h"
 
 #include <functional>
 #include <boost/regex.hpp>
@@ -36,7 +36,7 @@ namespace oscapi {
 	 * \class oscapi::Parser
 	 * main unit handling translation to and from packed OSC data and internal structures for MIDI and other items of interest
 	 */
-	Processor::Processor(oscapi::msgq_t& _outq) : outq(_outq) {}
+	Processor::Processor(xymsg::q_t& _outq) : outq(_outq) {}
 
 	/*!
 	 * main wrapper decoding an OSC encoded buffer
@@ -50,11 +50,11 @@ namespace oscapi {
 	/*!
 	 * pack one of our recognized midi/whatever messages as OSC
 	 */
-	bool Processor::pack(uint8_t* buffer, std::size_t& size, const std::shared_ptr<msg_t> msg)
+	bool Processor::pack(uint8_t* buffer, std::size_t& size, const std::shared_ptr<xymsg::msg_t> msg)
 	{
 		try {
-			if (msg->type == msg_type::midi) {
-				auto mcp = std::static_pointer_cast<MidiMsg>(msg);
+			if (msg->type == xymsg::typ::midi) {
+				auto mcp = std::static_pointer_cast<xymsg::MidiMsg>(msg);
 				if (!mcp) {
 					return false;
 				}

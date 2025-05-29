@@ -1,6 +1,6 @@
 #pragma once
 
-#include "osc_cmd.h"
+#include "message.h"
 
 #include <memory>
 
@@ -11,6 +11,7 @@ class OSCWorker;
 class JSONHandler;
 class WSServer;
 class JSApiWorker;
+class MidiWorker;
 
 namespace oscapi {
 	class Processor;
@@ -34,9 +35,11 @@ private:
 	std::shared_ptr<JSONHandler> jsonApi;
 	std::unique_ptr<WSServer> wsServer;
 	std::unique_ptr<JSApiWorker> jsApiWorker;
+	std::unique_ptr<MidiWorker> midiWorker;
 
-	oscapi::msgq_t spiInQ;
-	oscapi::msgq_t oscInQ;
+	xymsg::q_t spiInQ;
+	xymsg::q_t oscInQ;
+	xymsg::q_t midiOutQ;
 	jsapi::cmdq_t cmdQ;
 
 	uint16_t threadCount;

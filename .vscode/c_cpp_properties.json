@@ -8,7 +8,8 @@
                 "C:/Program Files (x86)/boost/include/boost-1_74",
                 "C:/Program Files (x86)/oscpp/include",
                 "C:/Program Files (x86)/nlohmann_json/include",
-                "C:/Program Files (x86)/spdlog/include"
+                "C:/Program Files (x86)/spdlog/include",
+                "C:/Program Files (x86)/RtMidi/include"
             ],
             "defines": [
                 "_DEBUG",

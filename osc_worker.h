@@ -1,6 +1,6 @@
 #pragma once
 
-#include "osc_cmd.h"
+#include "message.h"
 #include "osc_server.h"
 
 #include <atomic>
@@ -9,7 +9,7 @@
 class OSCWorker
 {
 public:
-	OSCWorker(OSCServer &_oscurver, oscapi::msgq_t& msgq);
+	OSCWorker(OSCServer &_oscurver, xymsg::q_t& msgq);
 	~OSCWorker();
 
 	void run();
@@ -23,5 +23,5 @@ private:
 	std::thread myThread;
 
 	OSCServer &oscurver;
-	oscapi::msgq_t& msgq;
+	xymsg::q_t& msgq;
 };

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <thread>
-#include "osc_cmd.h"
+#include "message.h"
 
 
 enum spi_io_state_t: uint8_t {
@@ -21,7 +21,7 @@ enum spi_io_state_t: uint8_t {
 
 class PiSpi {
 public:
-	PiSpi(oscapi::msgq_t& _inQ, oscapi::msgq_t& _outQ);
+	PiSpi(xymsg::q_t& _inQ, xymsg::q_t& _outQ);
 	~PiSpi();
 
 	bool start();
@@ -43,8 +43,8 @@ protected:
 
 
 
-	oscapi::msgq_t& inQ;
-	oscapi::msgq_t& outQ;
+	xymsg::q_t& inQ;
+	xymsg::q_t& outQ;
 
 	void spiRunner();
 	void processNextSpiByte(const uint8_t bytIn);

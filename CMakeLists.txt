@@ -11,12 +11,12 @@ find_package(Boost 1.74 COMPONENTS program_options coroutine thread)
 find_package(spdlog 1.15.2 REQUIRED)
 find_package(nlohmann_json 3.6.0 REQUIRED)
 
+find_path(HAS_WIRING_PI "wiringPiSPI.h")
+
 include_directories(include)
 
-set(EXTRA_SOURCES "")
-
-if (WIN32)
-	list(APPEND EXTRA_SOURCES win_midi.cpp)
+if (HAS_WIRING_PI)
+	set(EXTRA_SOURCES "pi_spi.cpp")
 endif()
 
 add_executable(${PROJECT_NAME}
@@ -24,6 +24,7 @@ add_executable(${PROJECT_NAME}
 	xypi_hub.cpp
 	osc_server.cpp
 	osc_worker.cpp
+	midi_worker.cpp
 	osc_handler.cpp
 	ws_server.cpp
 	ws_session_handler.cpp
@@ -41,6 +42,11 @@ target_link_libraries(${PROJECT_NAME}
 	Boost::thread
 	nlohmann_json::nlohmann_json
 )
+
+if (WIN32)
+	target_include_directories(${PROJECT_NAME}
+		PUBLIC "C:/Program Files (x86)/RtMidi/include")
+endif()
 
 option(SINGLE_THREADED_IO "Build single threaded server" OFF)
 if (SINGLE_THREADED_IO)

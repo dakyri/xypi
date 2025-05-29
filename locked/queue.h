@@ -22,29 +22,35 @@ public:
 	 */
 	void disableWait()
 	{
-		std::unique_lock<std::mutex> lock(m_mutex);
-		m_enabled = false;
-		m_ready.notify_all();
+		std::unique_lock<std::mutex> lock(mutex);
+		isBlocking = false;
+		ready.notify_all();
 	}
 
 	/*!
 	 * enable a wait for data on the front() method
 	 */
-	void enableWait() { m_enabled = true; }
+	void enable(bool _en=true) { isRunning = _en; }
+
+	/*!
+	 * enable a wait for data on the front() method
+	 */
+	void enableWait() { isBlocking = true; }
 
 	/*!
 	 * check that blocking mode is enabled
 	 */
-	bool waitEnabled() { return m_enabled; }
+	bool waitEnabled() { return isBlocking; }
 
 	/*!
 	 * push r-value to the back of the queue
 	 */
 	void push(T&& value)
 	{
-		const std::unique_lock<std::mutex> lock(m_mutex);
-		m_queue.push_back(std::move(value));
-		m_ready.notify_all();
+		const std::unique_lock<std::mutex> lock(mutex);
+		if (!isRunning) return;
+		queue.push_back(std::move(value));
+		ready.notify_all(); //! TODO: or notify one???
 	}
 
 	/*!
@@ -52,9 +58,10 @@ public:
 	 */
 	void push_front(T&& value)
 	{
-		const std::unique_lock<std::mutex> lock(m_mutex);
-		m_queue.push_front(std::move(value));
-		m_ready.notify_all();
+		const std::unique_lock<std::mutex> lock(mutex);
+		if (!isRunning) return;
+		queue.push_front(std::move(value));
+		ready.notify_all(); //! TODO: or notify one???
 	}
 
 	/*!
@@ -63,20 +70,20 @@ public:
 	 */
 	std::pair<T, bool> front()
 	{
-		std::unique_lock<std::mutex> conditionLock(m_mutex);
-		m_ready.wait(conditionLock, [&]() { return !m_enabled || !m_queue.empty(); });
-		if (m_queue.empty()) return { T(), false };
+		std::unique_lock<std::mutex> conditionLock(mutex);
+		ready.wait(conditionLock, [&]() { return !isBlocking || !queue.empty(); });
+		if (queue.empty()) return { T(), false };
 
-		return{ m_queue.front(), true };
+		return{ queue.front(), true };
 	}
 
 	std::pair<T, bool> front(const chrono::duration timeout)
 	{
-		std::unique_lock<std::mutex> conditionLock(m_mutex);
-		m_ready.wait_for(conditionLock, timeout, [&]() { return !m_enabled || !m_queue.empty(); });
-		if (m_queue.empty()) return { T(), false };
+		std::unique_lock<std::mutex> conditionLock(mutex);
+		ready.wait_for(conditionLock, timeout, [&]() { return !isBlocking || !queue.empty(); });
+		if (queue.empty()) return { T(), false };
 
-		return{ m_queue.front(), true };
+		return{ queue.front(), true };
 	}
 
 	/*!
@@ -84,8 +91,8 @@ public:
 	 */
 	void remove(T& v)
 	{
-		const std::unique_lock<std::mutex> lock(m_mutex);
-		m_queue.remove(v);
+		const std::unique_lock<std::mutex> lock(mutex);
+		queue.remove(v);
 	}
 
 	/*!
@@ -93,9 +100,9 @@ public:
 	 */
 	int find_qorder(std::function<bool(const T&)> pred)
 	{
-		const std::unique_lock<std::mutex> lock(m_mutex);
+		const std::unique_lock<std::mutex> lock(mutex);
 		int qo = 0;
-		for (auto const& it : m_queue) {
+		for (auto const& it : queue) {
 			if (pred(it)) return qo;
 			++qo;
 		}
@@ -107,8 +114,8 @@ public:
 	 */
 	void foreach(std::function<void(const T&)> f)
 	{
-		const std::unique_lock<std::mutex> lock(m_mutex);
-		for (auto const& it : m_queue) { f(it); }
+		const std::unique_lock<std::mutex> lock(mutex);
+		for (auto const& it : queue) { f(it); }
 	}
 
 	/*!
@@ -116,15 +123,16 @@ public:
 	 */
 	bool empty()
 	{
-		const std::unique_lock<std::mutex> lock(m_mutex);
-		return m_queue.empty();
+		const std::unique_lock<std::mutex> lock(mutex);
+		return queue.empty();
 	}
 
 private:
-	std::list<T> m_queue;
-	std::mutex m_mutex;
-	std::condition_variable m_ready;
-	bool m_enabled = true;
+	std::list<T> queue;
+	std::mutex mutex;
+	std::condition_variable ready;
+	bool isBlocking = true;
+	bool isRunning = false;	//!< we have a running worker to remove things from the queue
 };
 
 }

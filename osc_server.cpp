@@ -95,7 +95,7 @@ void OSCServer::send_handler(boost::system::error_code ec, std::size_t bytes_sen
  * TODO:
  *	- possibly shift the buffer type to a vector so we can be a bit more flexible. but 1024 as here should be adequate in almost any sane case.
  */
-void OSCServer::send_message(const std::shared_ptr<oscapi::msg_t> msg) {
+void OSCServer::send_message(const std::shared_ptr<xymsg::msg_t> msg) {
 	auto outBuf = std::make_shared<buf_t>();
 	auto dstEndpoint = std::make_shared<udp::endpoint>(currentDestination);
 	std::size_t outBufLen = outBuf->size();

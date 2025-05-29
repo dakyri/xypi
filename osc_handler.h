@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 
-#include "osc_cmd.h"
+#include "message.h"
 
 namespace OSCPP { namespace Server { class Packet; } };
 
@@ -16,16 +16,16 @@ namespace oscapi {
 	class Processor
 	{
 	public:
-		Processor(msgq_t& _outq);
+		Processor(xymsg::q_t& _outq);
 
 		void parse(uint8_t *data, std::size_t size);
-		bool pack(uint8_t *data, std::size_t &size, const std::shared_ptr<msg_t> _msg);
+		bool pack(uint8_t *data, std::size_t &size, const std::shared_ptr<xymsg::msg_t> _msg);
 		bool pack(uint8_t *data, std::size_t &size, const std::string& path, const std::vector<int> & params = {});
 		void debugDump();
 
 	private:
 		void handlePacket(OSCPP::Server::Packet &packet);
 
-		msgq_t& outq;
+		xymsg::q_t& outq;
 	};
 };

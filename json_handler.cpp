@@ -34,7 +34,7 @@ std::unordered_map<std::string, api_t> api {
 
 /*!
  */
-JSONHandler::JSONHandler(oscapi::msgq_t &_spiInQ, oscapi::msgq_t &_oscInQ, jsapi::cmdq_t& _cmdq, jsapi::results_t& _results)
+JSONHandler::JSONHandler(xymsg::q_t &_spiInQ, xymsg::q_t &_oscInQ, jsapi::cmdq_t& _cmdq, jsapi::results_t& _results)
 	: spiInQ(_spiInQ), oscInQ(_oscInQ), cmdq(_cmdq), results(_results) {}
 
 /*!

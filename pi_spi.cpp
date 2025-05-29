@@ -10,8 +10,7 @@ using spdlog::error;
 using spdlog::debug;
 using spdlog::warn;
 
-//#include <wiringPiSPI.h>
-int wiringPiSPISetupMode(int, int, int);
+#include <wiringPiSPI.h>
 
 #include "pi_spi.h"
 #include "xypiduino/include/xyspi.h"
@@ -20,7 +19,7 @@ int wiringPiSPISetupMode(int, int, int);
 constexpr int SPIchannel = 0;
 constexpr int SPIclockSpeed = 1000000;
 
-PiSpi::PiSpi(oscapi::msgq_t& _inQ, oscapi::msgq_t& _outQ)
+PiSpi::PiSpi(xymsg::q_t& _inQ, xymsg::q_t& _outQ)
 	: inQ(_inQ), outQ(_outQ), isSpiOpen(false), isRunning(false)
 {
 	// For the SPI clock speed we use 1 MHz. With WiringPi and Raspberry Pi you can choose a clock speed between 500 kHz and 32 MHz.
@@ -50,6 +49,7 @@ void PiSpi::stop()
 {
 	if (isRunning.exchange(false)) {
 		inQ.disableWait();
+		inQ.enable(false);
 		if (spiThread.joinable()) spiThread.join();
 	}
 }
@@ -126,14 +126,17 @@ void PiSpi::spiRunner()
 	};
 	
 
+	inQ.enable();
+	inQ.enableWait();
+	
 	while (isRunning) {
 		auto optMsg = inQ.front(timeout);
 		int msgLen = 0;
 		if (optMsg.second) {
 			auto msg = optMsg.first;
 			switch (msg->type) {
-				case oscapi::msg_type::midi: {
-					const auto &mmsg = std::static_pointer_cast<oscapi::MidiMsg>(msg);
+				case xymsg::typ::midi: {
+					const auto &mmsg = std::static_pointer_cast<xymsg::MidiMsg>(msg);
 					buf[0] = xyspi::cmd_t::midi | 1;
 					buf[1] = mmsg->midi.cmd;
 					buf[2] = mmsg->midi.val1;
@@ -141,8 +144,8 @@ void PiSpi::spiRunner()
 					msgLen = 4;
 					break;
 				}
-				case oscapi::msg_type::midi_list: {
-					const auto &mmsg = std::static_pointer_cast<oscapi::MidiListMsg>(msg);
+				case xymsg::typ::midi_list: {
+					const auto &mmsg = std::static_pointer_cast<xymsg::MidiListMsg>(msg);
 					auto l = mmsg->midi.size();
 					if (l > 127) {
 						error("midi list too long. skipping.");
@@ -158,8 +161,8 @@ void PiSpi::spiRunner()
 					++msgLen;
 					break;
 				}
-				case oscapi::msg_type::config_button: {
-					const auto &mmsg = std::static_pointer_cast<oscapi::ConfigButtonMsg>(msg);
+				case xymsg::typ::config_button: {
+					const auto &mmsg = std::static_pointer_cast<xymsg::ConfigButtonMsg>(msg);
 					buf[0] = xyspi::cmd_t::cfg_button;
 					buf[1] = mmsg->which;
 					buf[2] = sizeof(config::button);
@@ -167,8 +170,8 @@ void PiSpi::spiRunner()
 					msgLen = sizeof(config::button) + 3;
 					break;
 				}
-				case oscapi::msg_type::config_pedal: {
-					const auto &mmsg = std::static_pointer_cast<oscapi::ConfigPedalMsg>(msg);
+				case xymsg::typ::config_pedal: {
+					const auto &mmsg = std::static_pointer_cast<xymsg::ConfigPedalMsg>(msg);
 					buf[0] = xyspi::cmd_t::cfg_pedal;
 					buf[1] = mmsg->which;
 					buf[2] = sizeof(config::pedal);
@@ -176,8 +179,8 @@ void PiSpi::spiRunner()
 					msgLen = sizeof(config::pedal) + 3;
 					break;
 				}
-				case oscapi::msg_type::config_xlrm8r: {
-					const auto &mmsg = std::static_pointer_cast<oscapi::ConfigXlm8rMsg>(msg);
+				case xymsg::typ::config_xlrm8r: {
+					const auto &mmsg = std::static_pointer_cast<xymsg::ConfigXlm8rMsg>(msg);
 					buf[0] = xyspi::cmd_t::cfg_xlrm8;
 					buf[1] = mmsg->which;
 					buf[2] = sizeof(config::xlrm8r);
@@ -185,19 +188,19 @@ void PiSpi::spiRunner()
 					msgLen = sizeof(config::xlrm8r) + 3;
 					break;
 				}
-				case oscapi::msg_type::tempo: {
-					const auto &mmsg = std::static_pointer_cast<oscapi::TempoMsg>(msg);
+				case xymsg::typ::tempo: {
+					const auto &mmsg = std::static_pointer_cast<xymsg::TempoMsg>(msg);
 					buf[0] = xyspi::cmd_t::tempo;
 					*(reinterpret_cast<float*>(&buf[1])) = mmsg->tempo;
 					msgLen = 5;
 					break;
 				}
-				case oscapi::msg_type::duino_cmd: {
-					buf[0] = std::static_pointer_cast<oscapi::CmdMsg>(msg)->cmd;
+				case xymsg::typ::duino_cmd: {
+					buf[0] = std::static_pointer_cast<xymsg::CmdMsg>(msg)->cmd;
 					msgLen = 1;
 					break;
 				}
-				case oscapi::msg_type::none:
+				case xymsg::typ::none:
 				default:
 					buf[0] = xyspi::cmd_t::null;
 					msgLen = 1;
@@ -217,11 +220,10 @@ void PiSpi::spiRunner()
 		}
 
 		if (isRunning) {
-			if (wasPonged && inQ.empty()) {
-				/* wait on a condition variable with a timeout */
-				std::this_thread::sleep_for(10us);
-			} else {
-				/* not really a sleep. but we'll yield */
+			if (!wasPonged || !inQ.empty()) {
+				/* not really a sleep. but we'll yield otherwise, we wait for
+				 incoming with wait on a condition variable with a timeout inside front()
+				 at the start of the loop */
 				std::this_thread::sleep_for(10us);
 			}
 		}

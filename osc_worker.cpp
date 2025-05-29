@@ -20,7 +20,7 @@ using spdlog::warn;
  * - some commonality with the ws/json api worker
  */
 
-OSCWorker::OSCWorker(OSCServer &_oscurver, oscapi::msgq_t& _msgq)
+OSCWorker::OSCWorker(OSCServer &_oscurver, xymsg::q_t& _msgq)
 	: oscurver(_oscurver), msgq(_msgq)
 {}
 
@@ -45,6 +45,7 @@ void OSCWorker::stop()
 {
 	if (isRunning.exchange(false)) {
 		msgq.disableWait();
+		msgq.enable(false);
 		if (myThread.joinable()) myThread.join();
 	}
 }
@@ -54,6 +55,7 @@ void OSCWorker::stop()
  */
 void OSCWorker::runner()
 {
+	msgq.enable();
 	msgq.enableWait();
 	while (isRunning) {
 		// TODO: perhaps the whole current queue could be bundled

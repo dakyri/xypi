@@ -1,7 +1,7 @@
-#include "json_handler.h"
+#include "wsapi_handler.h"
 
 #include "jsonutil.h"
-#include "jsapi_cmd.h"
+#include "wsapi_cmd.h"
 
 #include <functional>
 
@@ -14,12 +14,12 @@ using spdlog::error;
 using spdlog::debug;
 using spdlog::warn;
 
-std::atomic<jsapi::cmd_id> JSONHandler::cmdid = 0;
+std::atomic<wsapi::cmd_id> WSApiHandler::cmdid = 0;
 
 //! essential data for describing an api command
 struct api_t {
-	std::function<json(JSONHandler*, const json&)> immediateProcessor;
-	std::function<std::shared_ptr<jsapi::cmd_t>(const std::string&, jsapi::cmd_id, const json&)> workQueueFactory;
+	std::function<json(WSApiHandler*, const json&)> immediateProcessor;
+	std::function<std::shared_ptr<wsapi::cmd_t>(const std::string&, wsapi::cmd_id, const json&)> workQueueFactory;
 	bool urgent;
 };
 
@@ -27,21 +27,21 @@ struct api_t {
 //! map between api commands and properties
 std::unordered_map<std::string, api_t> api {
 //	{"ping",		{nullptr,				&PingWork::create,				true}},
-	{"get",			{&JSONHandler::getCmd,	nullptr,						false}},
-	{"list",		{&JSONHandler::listCmd,	nullptr,						false}}
+	{"get",			{&WSApiHandler::getCmd,	nullptr,						false}},
+	{"list",		{&WSApiHandler::listCmd,	nullptr,						false}}
 };
 // clang-format on
 
 /*!
  */
-JSONHandler::JSONHandler(xymsg::q_t &_spiInQ, xymsg::q_t &_oscInQ, jsapi::cmdq_t& _cmdq, jsapi::results_t& _results)
+WSApiHandler::WSApiHandler(xymsg::q_t &_spiInQ, xymsg::q_t &_oscInQ, wsapi::cmdq_t& _cmdq, wsapi::results_t& _results)
 	: spiInQ(_spiInQ), oscInQ(_oscInQ), cmdq(_cmdq), results(_results) {}
 
 /*!
  * main processing hook:
  * takes json in, puts json out, and sets up the command queue in between.
  */
-std::pair<bool, json> JSONHandler::process(const json& request)
+std::pair<bool, json> WSApiHandler::process(const json& request)
 {
 	auto cmd = jutil::need_s(request, "cmd");
 	auto urgent = !jutil::opt_s(request, "urgent", "").empty();
@@ -58,7 +58,7 @@ std::pair<bool, json> JSONHandler::process(const json& request)
 			auto id = ++cmdid;
 			auto work = api_inf.workQueueFactory(cmd, id, request);
 			auto result = work->process();
-			if (result.first == jsapi::cmd_t::status::CMD_SCHEDULED) {
+			if (result.first == wsapi::cmd_t::status::CMD_SCHEDULED) {
 				if (urgent || api_inf.urgent) {
 					cmdq.push_front(std::move(work));
 				} else {
@@ -66,7 +66,7 @@ std::pair<bool, json> JSONHandler::process(const json& request)
 				}
 				debug("queueing command {} with id {}", cmd, id);
 			} else {
-				results.insert(id, jsapi::result_t(id, result));
+				results.insert(id, wsapi::result_t(id, result));
 				debug("storing immediate results for command {} with id {}", cmd, id);
 			}
 			response["id"] = id;
@@ -86,9 +86,9 @@ std::pair<bool, json> JSONHandler::process(const json& request)
  * handle a 'get' command.
  *  \param json request we expect exactly 1 request parameter, 'id' which corresponds to the id of a previously queued request
  */
-json JSONHandler::getCmd(json request)
+json WSApiHandler::getCmd(json request)
 {
-	const jsapi::cmd_id id = std::stoul(jutil::need_s(request, "id"));
+	const wsapi::cmd_id id = std::stoul(jutil::need_s(request, "id"));
 	debug("getCmd({})", id);
 	json response;
 	if (id == 0) return jutil::errorJSON("Bad request id 0");
@@ -97,7 +97,7 @@ json JSONHandler::getCmd(json request)
 		response["state"] = "done";
 		response["resp"] = result.first.result;
 	} else {
-		auto qorder = cmdq.find_qorder([id](const std::shared_ptr<jsapi::cmd_t>& v) -> bool { return v->id == id; });
+		auto qorder = cmdq.find_qorder([id](const std::shared_ptr<wsapi::cmd_t>& v) -> bool { return v->id == id; });
 		if (qorder >= 0) {
 			response["state"] = "enqueued";
 			response["pos"] = qorder;
@@ -113,23 +113,23 @@ json JSONHandler::getCmd(json request)
  * handle 'list' api command.
  * an instant commant that takes no parameters, and dumps the contensts of the current queues and maps
  */
-json JSONHandler::listCmd(json request)
+json WSApiHandler::listCmd(json request)
 {
 	json response;
 	json workList;
 	json resultList;
 
-	cmdq.foreach([&workList](const std::shared_ptr<jsapi::cmd_t>& v) { workList[std::to_string(v->id)] = v->toJson(); });
-	results.foreach([&resultList](const jsapi::cmd_id& k, const jsapi::result_t& v) { resultList[std::to_string(k)] = v.result; });
+	cmdq.foreach([&workList](const std::shared_ptr<wsapi::cmd_t>& v) { workList[std::to_string(v->id)] = v->toJson(); });
+	results.foreach([&resultList](const wsapi::cmd_id& k, const wsapi::result_t& v) { resultList[std::to_string(k)] = v.result; });
 
 	response["requests"] = workList;
 	response["responses"] = resultList;
 	return response;
 }
 
-void JSONHandler::debugDump()
+void WSApiHandler::debugDump()
 {
-	debug("api handler, current job id {}", cmdid);
-	results.foreach([](uint32_t k, jsapi::result_t v) { debug("> result id {}", k); });
-	cmdq.foreach([](const std::shared_ptr<jsapi::cmd_t>& v) { debug("> work id {}", v->id); });
+	debug("api handler, current job id {}", (int)cmdid);
+	results.foreach([](uint32_t k, wsapi::result_t v) { debug("> result id {}", k); });
+	cmdq.foreach([](const std::shared_ptr<wsapi::cmd_t>& v) { debug("> work id {}", v->id); });
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "jsapi_cmd.h"
+#include "wsapi_cmd.h"
 
 // supresses a ridiculous warning. ffs boost! go home, you are drunk!
 #define BOOST_DETAIL_SCOPED_ENUM_EMULATION_HPP
@@ -14,7 +14,7 @@
 #include <boost/asio/spawn.hpp>
 #include <nlohmann/json_fwd.hpp>
 
-class JSONHandler;
+class WSApiHandler;
 namespace websocket = boost::beast::websocket;
 using tcp = boost::asio::ip::tcp;
 
@@ -27,11 +27,11 @@ using tcp = boost::asio::ip::tcp;
 class WSSessionHandler : public std::enable_shared_from_this<WSSessionHandler>
 {
 public:
-	WSSessionHandler(boost::asio::io_service &_ioService,
+	WSSessionHandler(boost::asio::io_context &_ioService,
 					const std::shared_ptr<tcp::socket> _socket,
 					boost::asio::yield_context _yield,
-					boost::asio::io_service::strand& _strand,
-					std::shared_ptr<JSONHandler> _api);
+					boost::asio::io_context::strand& _strand,
+					std::shared_ptr<WSApiHandler> _api);
 	~WSSessionHandler();
 	void run();
 	void setTimoutSecs(uint32_t dlt);
@@ -42,9 +42,9 @@ private:
 
 	websocket::stream<tcp::socket> ws;
 	boost::asio::yield_context yieldCtxt;
-	boost::asio::io_service::strand& strand;
+	boost::asio::io_context::strand& strand;
 	const boost::posix_time::ptime startTime;
 
 	std::string id;
-	std::shared_ptr<JSONHandler> jsonHandler;
+	std::shared_ptr<WSApiHandler> jsonHandler;
 };

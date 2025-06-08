@@ -9,11 +9,11 @@
 
 #include <nlohmann/json.hpp>
 
-namespace jsapi {
+namespace wsapi {
 
 using cmd_id = uint32_t; //!< id for the command
 /*!
- * base class for commands sent to the hub via the jaon api
+ * base class for commands sent to the hub via the json api
  * some of these might be immediate, and some scheduled
  *	- send config information to the duino via spi
  *	- send commands to supercollider locally
@@ -22,7 +22,7 @@ using cmd_id = uint32_t; //!< id for the command
  *	- diagnostics, stop/start/restart on the osc server
  */
 struct cmd_t {
-	static std::shared_ptr<cmd_t> create(const std::string& cmd, jsapi::cmd_id id, const nlohmann::json& req);
+	static std::shared_ptr<cmd_t> create(const std::string& cmd, wsapi::cmd_id id, const nlohmann::json& req);
 
 	enum class status : uint32_t {
 		CMD_SCHEDULED, CMD_IMMEDIATE, CMD_ERROR

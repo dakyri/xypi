@@ -1,3 +1,5 @@
 /xypi
 /Tests
 /build
+/websocket_server_async.cpp
+/ws-test

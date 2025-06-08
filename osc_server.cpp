@@ -4,7 +4,7 @@
 // hack to avoid a warning about deprecated boost headers included by boost. seriously.
 #include <boost/core/scoped_enum.hpp>
 #define BOOST_DETAIL_SCOPED_ENUM_EMULATION_HPP
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/asio/placeholders.hpp>
 #include <boost/asio/ip/multicast.hpp>
 #include <spdlog/spdlog.h>
@@ -20,6 +20,8 @@ using spdlog::info;
 using spdlog::error;
 using spdlog::debug;
 using spdlog::warn;
+
+using namespace boost::placeholders;
 
 namespace asio = boost::asio;
 using udp = boost::asio::ip::udp;

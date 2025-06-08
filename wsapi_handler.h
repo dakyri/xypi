@@ -1,19 +1,19 @@
 #pragma once
 
-#include "jsapi_cmd.h"
+#include "wsapi_cmd.h"
 #include "message.h"
 
 #include <atomic>
 #include <tuple>
 
 /*!
- * \brief does the processing of json commands and returns json. anything that can be handled without delay is handled directly
+ * \brief does the processing of web socket commands, json or otherwise, and returns an appropriate response. anything that can be handled without delay is handled directly
  *  and anything that will delay the io thread will be submitted to a worker
  */
-class JSONHandler
+class WSApiHandler
 {
 public:
-	JSONHandler(xymsg::q_t &_spiInQ, xymsg::q_t &_oscInQ, jsapi::cmdq_t& _cmdQ, jsapi::results_t& results);
+	WSApiHandler(xymsg::q_t &_spiInQ, xymsg::q_t &_oscInQ, wsapi::cmdq_t& _cmdQ, wsapi::results_t& results);
 
 	std::pair<bool, nlohmann::json> process(const nlohmann::json& request);
 
@@ -25,7 +25,7 @@ public:
 private:
 	xymsg::q_t& spiInQ;
 	xymsg::q_t& oscInQ;
-	jsapi::cmdq_t& cmdq;
-	jsapi::results_t& results;
-	static std::atomic<jsapi::cmd_id> cmdid;
+	wsapi::cmdq_t& cmdq;
+	wsapi::results_t& results;
+	static std::atomic<wsapi::cmd_id> cmdid;
 };

@@ -20,7 +20,7 @@ public:
 	void insert(const K& key, V&& value)
 	{
 		const std::unique_lock<std::mutex> lock(mutex);
-		map[key] = std::move(value);
+		imap[key] = std::move(value);
 	}
 
 	/*!
@@ -30,10 +30,10 @@ public:
 	std::pair<V, bool> fetch(const K& key)
 	{
 		const std::unique_lock<std::mutex> lock(mutex);
-		auto it = map.find(key);
-		if (it == map.end()) return { V(), false };
+		auto it = imap.find(key);
+		if (it == imap.end()) return { V(), false };
 		auto v = it->second;
-		map.erase(it);
+		imap.erase(it);
 		return{ v, true };
 	}
 
@@ -43,11 +43,11 @@ public:
 	void foreach(std::function<void(const K&, const V&)> f)
 	{
 		const std::unique_lock<std::mutex> lock(mutex);
-		for (auto const& it : map) { f(it.first, it.second); }
+		for (auto const& it : imap) { f(it.first, it.second); }
 	}
 
 private:
-	std::unordered_map<K, V> map;
+	std::unordered_map<K, V> imap;
 	std::mutex mutex;
 };
 

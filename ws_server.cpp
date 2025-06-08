@@ -8,7 +8,7 @@
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/placeholders.hpp>
 #include <boost/asio/strand.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <spdlog/spdlog.h>
 //#include <sys/wait.h>
@@ -23,9 +23,10 @@ using spdlog::error;
 using spdlog::debug;
 using spdlog::warn;
 
+using namespace boost::placeholders; 
 namespace asio = boost::asio;
 
-WSServer::WSServer(asio::io_service& _ioservice, uint16_t port, std::shared_ptr<JSONHandler> api)
+WSServer::WSServer(asio::io_service& _ioservice, uint16_t port, std::shared_ptr<WSApiHandler> api)
 	: acceptor(_ioservice, tcp::endpoint(tcp::v4(), port)), sigWaiter(_ioservice, SIGINT, SIGTERM), ioService(_ioservice), jsonHandler(api)
 {}
 
@@ -49,7 +50,7 @@ void WSServer::start()
 /*!
  * initiates an an async acceptence of a connection on the given socket.
  * unless we're specifically cancelled, we relaunch.
- * we're potentially running the iocontext across multiple threads.
+ * we're potentially running the ioService across multiple threads.
  */
 void WSServer::accept()
 {
@@ -74,7 +75,8 @@ void WSServer::accept_handler(boost::system::error_code ec, std::shared_ptr<tcp:
 	}
 
 	debug("WSServer::accept() making new connection \\o/");
-	auto strand = asio::io_service::strand(ioService); // the strand is copied into the RequestHandler
+	auto strand = asio::io_context::strand(ioService); // the strand is copied into the RequestHandler
+	/*
 	asio::spawn(strand, [socket, &strand, this](asio::yield_context yield) {
 		auto handler = std::make_shared<WSSessionHandler>(ioService, std::move(socket), yield, strand, jsonHandler);
 		try {
@@ -84,5 +86,84 @@ void WSServer::accept_handler(boost::system::error_code ec, std::shared_ptr<tcp:
 			error("WSServer::accept() got excption from request handler: {}", e.what());
 		}
 	});
+	*/
 	accept();
 }
+
+namespace net = boost::asio;            // from <boost/asio.hpp>
+namespace beast = boost::beast;         // from <boost/beast.hpp>
+
+// Accepts incoming connections and launches the sessions
+class listener : public std::enable_shared_from_this<listener>
+{
+    net::io_context& ioc_;
+    tcp::acceptor acceptor_;
+
+public:
+    listener(
+        net::io_context& ioc,
+        tcp::endpoint endpoint)
+        : ioc_(ioc)
+        , acceptor_(ioc)
+    {
+        beast::error_code ec;
+
+        // Open the acceptor
+        acceptor_.open(endpoint.protocol(), ec);
+        if(ec) {
+            error("open error {}", ec);
+            return;
+        }
+
+        // Allow address reuse
+        acceptor_.set_option(net::socket_base::reuse_address(true), ec);
+        if(ec) {
+            error("set_option error {}", ec);
+            return;
+        }
+
+        // Bind to the server address
+        acceptor_.bind(endpoint, ec);
+        if(ec) {
+            error("set_option error {}", ec);
+            return;
+        }
+
+        // Start listening for connections
+        acceptor_.listen( net::socket_base::max_listen_connections, ec);
+        if(ec) {
+            error("set_option error {}", ec);
+            return;
+        }
+    }
+
+    // Start accepting incoming connections
+    void
+    run()
+    {
+        do_accept();
+    }
+
+private:
+    void do_accept()
+    {
+        // The new connection gets its own strand
+        acceptor_.async_accept(
+            net::make_strand(ioc_),
+            beast::bind_front_handler( &listener::on_accept, shared_from_this()));
+    }
+
+    void
+    on_accept(beast::error_code ec, tcp::socket socket)
+    {
+        if(ec) {
+             error("set_option error {}", ec);
+        } else {
+            // Create the session and run it
+            std::make_shared<session>(std::move(socket))->run();
+        }
+
+        // Accept another connection
+        do_accept();
+    }
+};

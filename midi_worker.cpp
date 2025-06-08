@@ -40,8 +40,8 @@ MidiWorker::~MidiWorker()
  */
 void MidiWorker::scanPorts()
 {
-	midiInPorts.empty();
-	midiOutPorts.empty();
+	midiInPorts.clear();
+	midiOutPorts.clear();
 	if (midiIn) {
 		uint32_t nInPorts = midiIn->getPortCount();
 		std::string portName;

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "message.h"
+#include "wsapi_cmd.h"
+#include "midi_worker.h"
 
 #include <memory>
 
@@ -8,10 +10,9 @@
 
 class OSCServer;
 class OSCWorker;
-class JSONHandler;
+class WSApiHandler;
 class WSServer;
-class JSApiWorker;
-class MidiWorker;
+class WSApiWorker;
 
 namespace oscapi {
 	class Processor;
@@ -32,15 +33,15 @@ private:
 	std::shared_ptr<oscapi::Processor> oscParser; //!<< we should be able to get away with sharing the one
 	std::unique_ptr<OSCServer> oscServer;
 	std::unique_ptr<OSCWorker> oscWorker;
-	std::shared_ptr<JSONHandler> jsonApi;
+	std::shared_ptr<WSApiHandler> jsonApi;
 	std::unique_ptr<WSServer> wsServer;
-	std::unique_ptr<JSApiWorker> jsApiWorker;
+	std::unique_ptr<WSApiWorker> jsApiWorker;
 	std::unique_ptr<MidiWorker> midiWorker;
 
 	xymsg::q_t spiInQ;
 	xymsg::q_t oscInQ;
 	xymsg::q_t midiOutQ;
-	jsapi::cmdq_t cmdQ;
+	wsapi::cmdq_t cmdQ;
 
 	uint16_t threadCount;
 };

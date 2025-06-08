@@ -1,15 +1,15 @@
 #pragma once
 
-#include "jsapi_cmd.h"
+#include "wsapi_cmd.h"
 
 #include <atomic>
 #include <thread>
 
-class JSApiWorker
+class WSApiWorker
 {
 public:
-	JSApiWorker(jsapi::cmdq_t& _cq, jsapi::results_t& results);
-	~JSApiWorker();
+	WSApiWorker(wsapi::cmdq_t& _cq, wsapi::results_t& results);
+	~WSApiWorker();
 
 	void run();
 	void stop();
@@ -21,6 +21,6 @@ private:
 	std::atomic<bool> isRunning;
 	std::thread myThread;
 
-	jsapi::cmdq_t& cmdq;
-	jsapi::results_t& results;
+	wsapi::cmdq_t& cmdq;
+	wsapi::results_t& results;
 };

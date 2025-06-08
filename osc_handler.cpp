@@ -43,7 +43,7 @@ namespace oscapi {
 	 */
 	void Processor::parse(uint8_t* data, std::size_t size)
 	{
-		debug("got bytes {}", hexStr(data, size));
+		debug("got bytes {}", hexStr(data, static_cast<int>(size)));
 		handlePacket(OSCPP::Server::Packet(data, size));
 	}
 

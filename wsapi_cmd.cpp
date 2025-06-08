@@ -1,4 +1,4 @@
-#include "jsapi_cmd.h"
+#include "wsapi_cmd.h"
 
 #include "jsonutil.h"
 
@@ -10,7 +10,7 @@ using json = nlohmann::json;
 using spdlog::info;
 using spdlog::debug;
 
-namespace jsapi {
+namespace wsapi {
 
 std::shared_ptr<cmd_t> cmd_t::create(const std::string& cmd, cmd_id id, const nlohmann::json& request)
 {
@@ -24,7 +24,7 @@ nlohmann::json cmd_t::toJson()
 	return jsonval;
 }
 
-std::pair<jsapi::cmd_t::status, json> cmd_t::process()
+std::pair<wsapi::cmd_t::status, json> cmd_t::process()
 {
 	json result;
 	debug("jsappi_cmd process {}", id);

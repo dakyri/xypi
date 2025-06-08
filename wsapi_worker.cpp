@@ -1,4 +1,4 @@
-#include "jsapi_worker.h"
+#include "wsapi_worker.h"
 
 #include <spdlog/spdlog.h>
 
@@ -17,17 +17,17 @@ using spdlog::warn;
  *	- any operations on external programs such as super collider
  */
 
-JSApiWorker::JSApiWorker(jsapi::cmdq_t& _cmdq, jsapi::results_t& _results)
+WSApiWorker::WSApiWorker(wsapi::cmdq_t& _cmdq, wsapi::results_t& _results)
 	: cmdq(_cmdq), results(_results)
 {}
 
-JSApiWorker::~JSApiWorker() { stop(); }
+WSApiWorker::~WSApiWorker() { stop(); }
 
 /*!
  * launch the worker and return immediately. we check that the dongle is open here, and if we have enough permission,
  * we list whatever files we find.
  */
-void JSApiWorker::run()
+void WSApiWorker::run()
 {
 	if (!isRunning.exchange(true)) {
 		debug("JSApiWorker::run() launching main thread");
@@ -38,7 +38,7 @@ void JSApiWorker::run()
 /*!
  * stop the worker thread and wait until it completes. then clean up the dongle
  */
-void JSApiWorker::stop()
+void WSApiWorker::stop()
 {
 	if (isRunning.exchange(false)) {
 		cmdq.disableWait();
@@ -49,7 +49,7 @@ void JSApiWorker::stop()
 /*!
  * main body of the work queue processor
  */
-void JSApiWorker::runner()
+void WSApiWorker::runner()
 {
 	cmdq.enableWait();
 	while (isRunning) {
@@ -66,10 +66,10 @@ void JSApiWorker::runner()
 				auto res = work->process();
 				auto &r = res.second;
 				debug("processed!");
-				if (res.first == jsapi::cmd_t::status::CMD_ERROR) {
+				if (res.first == wsapi::cmd_t::status::CMD_ERROR) {
 					debug("JSApiWorker({}) fails with error message {}", currentResultId, r["error"].get<std::string>());
 				}
-				results.insert(currentResultId, jsapi::result_t(currentResultId, r));
+				results.insert(currentResultId, wsapi::result_t(currentResultId, r));
 			} catch (const std::exception& e) {
 				error("JSApiWorker() gets exception: {}", e.what());
 			}

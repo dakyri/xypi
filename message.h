@@ -3,8 +3,6 @@
 #include "xypi_midi.h"
 #include "xycfg.h"
 
-#pragma once
-
 // TODO: ASAP find a better solution than this
 #include "locked/queue.h"
 

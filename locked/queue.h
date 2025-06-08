@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include <utility>
+#include <chrono>
 
 namespace locked {
 /*!
@@ -49,7 +50,7 @@ public:
 	{
 		const std::unique_lock<std::mutex> lock(mutex);
 		if (!isRunning) return;
-		queue.push_back(std::move(value));
+		iqueue.push_back(std::move(value));
 		ready.notify_all(); //! TODO: or notify one???
 	}
 
@@ -60,7 +61,7 @@ public:
 	{
 		const std::unique_lock<std::mutex> lock(mutex);
 		if (!isRunning) return;
-		queue.push_front(std::move(value));
+		iqueue.push_front(std::move(value));
 		ready.notify_all(); //! TODO: or notify one???
 	}
 
@@ -71,19 +72,19 @@ public:
 	std::pair<T, bool> front()
 	{
 		std::unique_lock<std::mutex> conditionLock(mutex);
-		ready.wait(conditionLock, [&]() { return !isBlocking || !queue.empty(); });
-		if (queue.empty()) return { T(), false };
+		ready.wait(conditionLock, [&]() { return !isBlocking || !iqueue.empty(); });
+		if (iqueue.empty()) return { T(), false };
 
-		return{ queue.front(), true };
+		return{ iqueue.front(), true };
 	}
 
-	std::pair<T, bool> front(const chrono::duration timeout)
+	std::pair<T, bool> front(const std::chrono::duration<long> timeout)
 	{
 		std::unique_lock<std::mutex> conditionLock(mutex);
 		ready.wait_for(conditionLock, timeout, [&]() { return !isBlocking || !queue.empty(); });
-		if (queue.empty()) return { T(), false };
+		if (iqueue.empty()) return { T(), false };
 
-		return{ queue.front(), true };
+		return{ iqueue.front(), true };
 	}
 
 	/*!
@@ -92,7 +93,7 @@ public:
 	void remove(T& v)
 	{
 		const std::unique_lock<std::mutex> lock(mutex);
-		queue.remove(v);
+		iqueue.remove(v);
 	}
 
 	/*!
@@ -102,7 +103,7 @@ public:
 	{
 		const std::unique_lock<std::mutex> lock(mutex);
 		int qo = 0;
-		for (auto const& it : queue) {
+		for (auto const& it : iqueue) {
 			if (pred(it)) return qo;
 			++qo;
 		}
@@ -115,7 +116,7 @@ public:
 	void foreach(std::function<void(const T&)> f)
 	{
 		const std::unique_lock<std::mutex> lock(mutex);
-		for (auto const& it : queue) { f(it); }
+		for (auto const& it : iqueue) { f(it); }
 	}
 
 	/*!
@@ -124,11 +125,11 @@ public:
 	bool empty()
 	{
 		const std::unique_lock<std::mutex> lock(mutex);
-		return queue.empty();
+		return iqueue.empty();
 	}
 
 private:
-	std::list<T> queue;
+	std::list<T> iqueue;
 	std::mutex mutex;
 	std::condition_variable ready;
 	bool isBlocking = true;

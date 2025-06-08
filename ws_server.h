@@ -4,7 +4,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/signal_set.hpp>
 
-class JSONHandler;
+class WSApiHandler;
 using tcp = boost::asio::ip::tcp;
 
 /*!
@@ -13,7 +13,7 @@ using tcp = boost::asio::ip::tcp;
 class WSServer
 {
 public:
-	WSServer(boost::asio::io_service& ioContext, uint16_t port, std::shared_ptr<JSONHandler> api);
+	WSServer(boost::asio::io_service& ioContext, uint16_t port, std::shared_ptr<WSApiHandler> api);
 
 	void start();
 
@@ -27,5 +27,5 @@ protected:
 	boost::asio::io_service& ioService;
 
 
-	std::shared_ptr<JSONHandler> jsonHandler;
+	std::shared_ptr<WSApiHandler> jsonHandler;
 };

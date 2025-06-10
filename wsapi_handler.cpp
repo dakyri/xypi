@@ -41,8 +41,10 @@ WSApiHandler::WSApiHandler(xymsg::q_t &_spiInQ, xymsg::q_t &_oscInQ, wsapi::cmdq
  * main processing hook:
  * takes json in, puts json out, and sets up the command queue in between.
  */
-std::pair<bool, json> WSApiHandler::process(const json& request)
+std::pair<bool, std::string> WSApiHandler::process(const std::string& request_s)
 {
+	auto request = nlohmann::json::parse(request_s);
+
 	auto cmd = jutil::need_s(request, "cmd");
 	auto urgent = !jutil::opt_s(request, "urgent", "").empty();
 	info("JSONHandler::process('{}')", cmd);
@@ -79,7 +81,10 @@ std::pair<bool, json> WSApiHandler::process(const json& request)
 		return jutil::errorJSON(fmt::format("JSON out of range, {}", e.what()));
 	}
 
-	return {true, response};
+	auto serialized = response.dump();
+	std::string response_bytes(serialized.begin(), serialized.end());
+
+	return {true, response_bytes};
 }
 
 /*!

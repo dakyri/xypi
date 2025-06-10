@@ -32,9 +32,11 @@ XypiHub::XypiHub(std::string dst_osc_adr, uint16_t dst_osc_prt, uint16_t rcv_osc
 	oscServer->set_current_destination(dst_osc_adr, dst_osc_prt);
 	oscWorker = std::make_unique<OSCWorker>(*oscServer.get(), oscInQ);
 
-	jsonApi = std::make_shared<WSApiHandler>(spiInQ, oscInQ, cmdQ, wsapi::results_t()); // TODO: really not sure what to do with these results
-	wsServer = std::make_unique<WSServer>(ioService, ws_port, jsonApi);
-	jsApiWorker = std::make_unique<WSApiWorker>(cmdQ, wsapi::results_t());
+	auto const ws_address = asio::ip::make_address("ws:://localhost");
+	auto const ws_endpoint = tcp::endpoint(ws_address, ws_port);
+	wsapiHandler = std::make_shared<WSApiHandler>(spiInQ, oscInQ, cmdQ, wsapi::results_t()); // TODO: really not sure what to do with these results
+	wsServer = std::make_unique<WSServer>(ioService, ws_endpoint, wsapiHandler);
+	wsapiWorker = std::make_unique<WSApiWorker>(cmdQ, wsapi::results_t());
 
 	midiWorker = std::make_unique<MidiWorker>(spiInQ, oscInQ, midiOutQ);
 }

@@ -15,7 +15,7 @@ class WSApiHandler
 public:
 	WSApiHandler(xymsg::q_t &_spiInQ, xymsg::q_t &_oscInQ, wsapi::cmdq_t& _cmdQ, wsapi::results_t& results);
 
-	std::pair<bool, nlohmann::json> process(const nlohmann::json& request);
+	std::pair<bool, std::string> process(const std::string & request);
 
 	nlohmann::json getCmd(nlohmann::json request);
 	nlohmann::json listCmd(nlohmann::json request);

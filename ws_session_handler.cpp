@@ -23,22 +23,22 @@ using spdlog::debug;
 using spdlog::trace;
 using spdlog::warn;
 
+
+namespace net = boost::asio;            // from <boost/asio.hpp>
+namespace beast = boost::beast;         // from <boost/beast.hpp>
+namespace http = beast::http;           // from <boost/beast/http.hpp>
+
 using namespace boost::placeholders; 
 namespace asio = boost::asio;
 static const int kHttpBuffSize = 1024;
 using http_buf_t = std::array<char, kHttpBuffSize>;
 using regex = boost::regex;
 
-WSSessionHandler::WSSessionHandler(boost::asio::io_context &_ioService,
-								const std::shared_ptr<tcp::socket> _socket,
-								asio::yield_context _yield,
-								boost::asio::io_context::strand& _strand,
+WSSessionHandler::WSSessionHandler(tcp::socket && _socket,
 								std::shared_ptr<WSApiHandler> _api)
-	: ws(std::move(*_socket))
-	, yieldCtxt(std::move(_yield))
-	, strand(_strand)
+	: ws(std::move(_socket))
 	, startTime{boost::posix_time::microsec_clock::local_time()}
-	, jsonHandler(_api)
+	, wscmdHandler(_api)
 {
 	auto threadId = std::hash<std::thread::id>{}(std::this_thread::get_id());
 	id = fmt::format("[{:x}]", threadId & 0xffff);
@@ -47,48 +47,76 @@ WSSessionHandler::WSSessionHandler(boost::asio::io_context &_ioService,
 
 WSSessionHandler::~WSSessionHandler() { debug("WSSessionHandler({}) exiting", id); }
 
-void WSSessionHandler::run()
+void
+WSSessionHandler::run()
 {
-	trace("WSSessionHandler({})::run()", id);
+	// We need to be executing within a strand to perform async operations on the I/O objects in this session. Although not strictly necessary
+	// for single-threaded contexts, this example code is written to bethread-safe by default.
+	asio::dispatch(ws.get_executor(), beast::bind_front_handler(&WSSessionHandler::onRun, shared_from_this()));
+}
 
-	boost::system::error_code ec;
-	auto close_code = websocket::close_code::normal;
+void WSSessionHandler::onRun()
+{
+	trace("WSSessionHandler({})::onRun()", id);
 
-	ws.async_accept(yieldCtxt[ec]);
+	ws.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
+
+// Set a decorator to change the Server of the handshake
+	ws.set_option(websocket::stream_base::decorator(
+		[] (websocket::response_type& res) {
+			res.set(http::field::server, std::string(BOOST_BEAST_VERSION_STRING) + " websocket-server-async");
+		})
+	);
+
+	// Accept the websocket handshake
+	ws.async_accept(beast::bind_front_handler(&WSSessionHandler::onAccept, shared_from_this()));
+}
+
+void
+WSSessionHandler::onAccept(error_code ec)
+{
 	if (ec) {
 		ws.close(websocket::close_reason{ websocket::close_code::going_away });
 		debug("WSSessionHandler({})::run() accept fails {}: {}", id, ec.value(), ec.message());
 		throw std::runtime_error(fmt::format("websocket accept fails {}", ec.message()));
 	}
+	read();
+}
 
+void WSSessionHandler::read()
+{
+	// Read a message into our buffer
+	ws.async_read(i_buffer, beast::bind_front_handler(&WSSessionHandler::onRead, shared_from_this()));
+}
+
+void WSSessionHandler::onRead(error_code ec, std::size_t bytes_transferred)
+{
+	auto close_code = websocket::close_code::normal;
 	bool wasError = false;
 	std::string errorMessage;
+
 	try {
-		while (true) {
-			boost::beast::multi_buffer buffer;
-			ws.async_read(buffer, yieldCtxt[ec]);
-			if (ec) {
-				if (ec != websocket::error::closed) {
-					// so, an actual error, not a clean close
-					wasError = true;
-					errorMessage = fmt::format("Websocket read error {}: {}", ec.value(), ec.message());
-					close_code = websocket::close_code::bad_payload;
-				}
-				break;
-			}
-			if (!ws.got_text()) {
+		if (ec) {
+			if (ec != websocket::error::closed) {
+				// so, an actual error, not a clean close
 				wasError = true;
-				errorMessage = fmt::format("Websocket unexpected binary message {}: {}", ec.value(), ec.message());
+				errorMessage = fmt::format("Websocket read error {}: {}", ec.value(), ec.message());
 				close_code = websocket::close_code::bad_payload;
+			} else {
+				ws.close(websocket::close_reason{close_code});
 			}
-			auto bytes = buffer.data();
+		} else if (!ws.got_text()) {
+			wasError = true;
+			errorMessage = fmt::format("Websocket unexpected binary message {}: {}", ec.value(), ec.message());
+			close_code = websocket::close_code::bad_payload;
+		} else {
+			auto bytes = i_buffer.data();
 			auto msgStr = boost::beast::buffers_to_string(bytes);
-			auto msgJsn = nlohmann::json::parse(msgStr);
 
 			debug("WSSessionHandler({})::run() processing next element in stream", id);
-			auto res = jsonHandler->process(msgJsn);
+			auto res = wscmdHandler->process(msgStr);
 			if (res.first) {
-				writeJson(res.second);
+				writeResponse(res.second);
 			}
 		}
 	} catch (const nlohmann::detail::exception& e) {
@@ -113,7 +141,18 @@ void WSSessionHandler::run()
 			info("Failed to send error response: {}", ex.what());
 		}
 	}
-	ws.close(websocket::close_reason{ close_code });
+}
+
+
+void
+WSSessionHandler::onWrite(error_code ec, std::size_t bytes_transferred)
+{
+	if (ec) {
+		error("WSSessionHandler({}) error '{}'", id, ec.message());
+		throw std::runtime_error(fmt::format("bad write on websocket: {}, {}", ec.value(), ec.message()));
+	}
+	o_buffer.consume(o_buffer.size()); 	// Clear the buffer
+	read();
 }
 
 
@@ -121,151 +160,12 @@ void WSSessionHandler::run()
  * write the given json message to the socket.
  *  \throws anything thrown by writeFramedBuffer or the json serializer
  */
-void WSSessionHandler::writeJson(const nlohmann::json& msg)
+void WSSessionHandler::writeResponse(const std::string& response_bytes)
 {
-	auto serialized = msg.dump();
-	debug("WSSessionHandler({}) write JSON => {}", id, serialized);
-	std::string response_bytes(serialized.begin(), serialized.end());
-	boost::system::error_code ec;
-	boost::beast::multi_buffer buffer;
-	boost::beast::ostream(buffer) << response_bytes;
+	boost::beast::ostream(o_buffer) << response_bytes;
 	ws.text(true);
-	ws.async_write(buffer.data(), yieldCtxt[ec]);
-	if (ec) {
-		error("WSSessionHandler({}) error '{}'", id, ec.message());
-		throw std::runtime_error(fmt::format("bad write on websocket: {}, {}", ec.value(), ec.message()));
-	}
-}
-
-void WSSessionHandler::sendError(const std::string& msg)
-{
-	error("WSSessionHandler({}) error '{}'", id, msg);
-	writeJson({{"error", msg}});
+	ws.async_write(o_buffer.data(), beast::bind_front_handler( &WSSessionHandler::onWrite, shared_from_this()));
+	debug("WSSessionHandler({}) write JSON => {}", id, response_bytes);
 }
 
 void WSSessionHandler::setTimoutSecs(uint32_t to_secs) { debug("WSSessionHandler({}) setting timeout {} unimplemented", id, to_secs); }
-
-
-namespace net = boost::asio;            // from <boost/asio.hpp>
-namespace beast = boost::beast;         // from <boost/beast.hpp>
-namespace http = beast::http;           // from <boost/beast/http.hpp>
-
-// Echoes back all received WebSocket messages
-class session : public std::enable_shared_from_this<session>
-{
-    websocket::stream<beast::tcp_stream> ws_;
-    beast::flat_buffer buffer_;
-
-public:
-    // Take ownership of the socket
-    explicit
-    session(tcp::socket&& socket)
-        : ws_(std::move(socket))
-    {
-    }
-
-    // Get on the correct executor
-    void
-    run()
-    {
-        // We need to be executing within a strand to perform async operations
-        // on the I/O objects in this session. Although not strictly necessary
-        // for single-threaded contexts, this example code is written to be
-        // thread-safe by default.
-        net::dispatch(ws_.get_executor(),
-            beast::bind_front_handler(
-                &session::on_run,
-                shared_from_this()));
-    }
-
-    // Start the asynchronous operation
-    void
-    on_run()
-    {
-        // Set suggested timeout settings for the websocket
-        ws_.set_option(
-            websocket::stream_base::timeout::suggested(
-                beast::role_type::server));
-
-        // Set a decorator to change the Server of the handshake
-        ws_.set_option(websocket::stream_base::decorator(
-            [](websocket::response_type& res)
-            {
-                res.set(http::field::server,
-                    std::string(BOOST_BEAST_VERSION_STRING) +
-                        " websocket-server-async");
-            }));
-        // Accept the websocket handshake
-        ws_.async_accept(
-            beast::bind_front_handler(
-                &session::on_accept,
-                shared_from_this()));
-    }
-
-    void
-    on_accept(beast::error_code ec)
-    {
-        if(ec) {
-			error("accep error {}t", ec);
-            return;
-		}
-
-        // Read a message
-        do_read();
-    }
-
-    void
-    do_read()
-    {
-        // Read a message into our buffer
-        ws_.async_read(
-            buffer_,
-            beast::bind_front_handler(
-                &session::on_read,
-                shared_from_this()));
-    }
-
-    void
-    on_read(
-        beast::error_code ec,
-        std::size_t bytes_transferred)
-    {
-        boost::ignore_unused(bytes_transferred);
-
-        // This indicates that the session was closed
-        if(ec == websocket::error::closed)
-            return;
-
-        if(ec) {
-			error("accep error {}", ec);
-			return;
-		}
-
-        // Echo the message
-        ws_.text(ws_.got_text());
-        ws_.async_write(
-            buffer_.data(),
-            beast::bind_front_handler(
-                &session::on_write,
-                shared_from_this()));
-    }
-
-    void
-    on_write(
-        beast::error_code ec,
-        std::size_t bytes_transferred)
-    {
-        boost::ignore_unused(bytes_transferred);
-
-        if(ec) {
-			error("write error {}", ec);
-            return ;
-		}
-
-        // Clear the buffer
-        buffer_.consume(buffer_.size());
-
-        // Do another read
-        do_read();
-    }
-};

@@ -33,9 +33,9 @@ private:
 	std::shared_ptr<oscapi::Processor> oscParser; //!<< we should be able to get away with sharing the one
 	std::unique_ptr<OSCServer> oscServer;
 	std::unique_ptr<OSCWorker> oscWorker;
-	std::shared_ptr<WSApiHandler> jsonApi;
+	std::shared_ptr<WSApiHandler> wsapiHandler;
 	std::unique_ptr<WSServer> wsServer;
-	std::unique_ptr<WSApiWorker> jsApiWorker;
+	std::unique_ptr<WSApiWorker> wsapiWorker;
 	std::unique_ptr<MidiWorker> midiWorker;
 
 	xymsg::q_t spiInQ;

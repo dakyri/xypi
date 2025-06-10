@@ -16,40 +16,35 @@
 
 class WSApiHandler;
 namespace websocket = boost::beast::websocket;
-namespace beast = boost::beast;
 using tcp = boost::asio::ip::tcp;
-using error_code = boost::system::error_code;
 
 
 /*!
  * handle the basic raw processing of a single stream of socket data and appropriate responses.
- * turns the byte stream into a command stream and sends that to the ApiHandler
+ * turns the byte stream into a json command stream and sends that to the ApiHandler
  * all the framing, and low level io are our responsibility here
  */
 class WSSessionHandler : public std::enable_shared_from_this<WSSessionHandler>
 {
 public:
-	WSSessionHandler(tcp::socket && _socket, std::shared_ptr<WSApiHandler> _api);
+	WSSessionHandler(boost::asio::io_context &_ioService,
+					const std::shared_ptr<tcp::socket> _socket,
+					boost::asio::yield_context _yield,
+					boost::asio::io_context::strand& _strand,
+					std::shared_ptr<WSApiHandler> _api);
 	~WSSessionHandler();
-	
 	void run();
-	void read();
-
-	void onRun();
-	void onAccept(error_code e);
-	void onRead(error_code ec, std::size_t bytes_transferred);
-	void onWrite(error_code ec, std::size_t bytes_transferred);
-
 	void setTimoutSecs(uint32_t dlt);
 
 private:
-	void writeResponse(const std::string& msg);
+	void sendError(const std::string& msg);
+	void writeResponse(const nlohmann::json& msg);
 
 	websocket::stream<tcp::socket> ws;
+	boost::asio::yield_context yieldCtxt;
+	boost::asio::io_context::strand& strand;
 	const boost::posix_time::ptime startTime;
-	beast::flat_buffer o_buffer;
-	beast::flat_buffer i_buffer;
 
 	std::string id;
-	std::shared_ptr<WSApiHandler> wscmdHandler;
+	std::shared_ptr<WSApiHandler> wsapiHandler;
 };

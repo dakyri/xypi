@@ -10,9 +10,10 @@ project(xypi)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Boost 1.74 COMPONENTS program_options coroutine thread)
+find_package(Boost 1.74 COMPONENTS program_options coroutine thread regex)
 find_package(Spdlog 1.15.2 REQUIRED)
 find_package(nlohmann_json 3.6.0 REQUIRED)
+find_package(RtMidi 7.0.0 REQUIRED)
 
 find_path(HAS_WIRING_PI "wiringPiSPI.h")
 
@@ -43,7 +44,9 @@ target_link_libraries(${PROJECT_NAME}
 	Boost::program_options
 	Boost::coroutine
 	Boost::thread
+	Boost::regex
 	nlohmann_json::nlohmann_json
+	RtMidi::rtmidi
 )
 
 if (WIN32)

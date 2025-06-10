@@ -1,5 +1,5 @@
-#include "ws_server.h"
-#include "ws_session_handler.h"
+#include "ws_server_coro.h"
+#include "ws_session_handler_coro.h"
 
 // hack to avoid a warning about deprecated boost headers included by boost. seriously.
 #include <boost/core/scoped_enum.hpp>
@@ -24,14 +24,10 @@ using spdlog::debug;
 using spdlog::warn;
 
 using namespace boost::placeholders; 
-namespace beast = boost::beast;         // from <boost/beast.hpp>
+namespace asio = boost::asio;
 
-WSServer::WSServer(asio::io_service& _ioservice, const tcp::endpoint _endpoint, std::shared_ptr<WSApiHandler> api)
-	: endpoint(_endpoint)
-	, acceptor(_ioservice)
-	, sigWaiter(_ioservice, SIGINT, SIGTERM)
-	, ioService(_ioservice)
-	, wscmdHandler(api)
+WSServer::WSServer(asio::io_service& _ioservice, uint16_t port, std::shared_ptr<WSApiHandler> api)
+	: acceptor(_ioservice, tcp::endpoint(tcp::v4(), port)), sigWaiter(_ioservice, SIGINT, SIGTERM), ioService(_ioservice), wsapiHandler(api)
 {}
 
 /*!
@@ -40,27 +36,7 @@ WSServer::WSServer(asio::io_service& _ioservice, const tcp::endpoint _endpoint, 
 void WSServer::start()
 {
 	boost::system::error_code ec;
-
-	acceptor.open(endpoint.protocol(), ec);
-	if(ec) {
-		error("open error {}", ec.message());
-		return;
-	}
-	acceptor.set_option(asio::socket_base::reuse_address(true), ec);
-	if(ec) {
-		error("set_option error {}", ec.message());
-		return;
-	}
-	acceptor.bind(endpoint, ec);
-	if(ec) {
-		error("set_option error {}", ec.message());
-		return;
-	}
-	acceptor.listen(asio::socket_base::max_listen_connections, ec);
-	if(ec) {
-		error("set_option error {}", ec.message());
-		return;
-	}
+	acceptor.listen(asio::socket_base::max_connections, ec);
 	sigWaiter.async_wait([this](boost::system::error_code, int sig) {
 		if (acceptor.is_open()) {
 			info("WSServer::start() SIGTERM received");
@@ -80,14 +56,10 @@ void WSServer::accept()
 {
 
 	auto new_socket = std::make_shared<tcp::socket>(ioService);
-/*
-    acceptor.async_accept(
-            asio::make_strand(ioService),
-            beast::bind_front_handler(&WSServer::accept_handler, shared_from_this()));*/
-
+	acceptor.async_accept(*new_socket, boost::bind(&WSServer::accept_handler, this, boost::asio::placeholders::error, new_socket));
 }
 
-void WSServer::accept_handler(boost::system::error_code ec, tcp::socket socket)
+void WSServer::accept_handler(boost::system::error_code ec, std::shared_ptr<tcp::socket> socket)
 {
 	if (ec == asio::error::operation_aborted) {
 		debug("WSServer::accept() canceled (asio::error::operation_aborted)");
@@ -103,6 +75,17 @@ void WSServer::accept_handler(boost::system::error_code ec, tcp::socket socket)
 	}
 
 	debug("WSServer::accept() making new connection \\o/");
-	std::make_shared<WSSessionHandler>(std::move(socket), wscmdHandler)->run();
-	accept();	// Accept another connection
+	auto strand = asio::io_context::strand(ioService); // the strand is copied into the RequestHandler
+	/*
+	asio::spawn(strand, [socket, &strand, this](asio::yield_context yield) {
+		auto handler = std::make_shared<WSSessionHandler>(ioService, std::move(socket), yield, strand, wsapiHandler);
+		try {
+			handler->run();
+		}
+		catch (const std::exception& e) {
+			error("WSServer::accept() got excption from request handler: {}", e.what());
+		}
+	});
+	*/
+	accept();
 }
